@@ -17,6 +17,9 @@
     --ok-soft: #e6f6ec;
     --done: #9aa1ad;
     --danger: #d93838;
+    --seg: #8b5cf6;
+    --seg-soft: #ede9fe;
+    --seg-text: #6d28d9;
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; }
@@ -47,7 +50,57 @@
   .filtros button { color: var(--muted); padding: 3px 9px; border-radius: 999px; font-size: 12px; }
   .filtros button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 
-  #lista { list-style: none; margin: 0; padding: 0 6px 6px; flex: 1; overflow-y: auto; }
+  #lista, .lista-col { list-style: none; margin: 0; padding: 0 6px 6px; overflow-y: auto; }
+  #lista { flex: 1; }
+  #lista[hidden], #columnas[hidden] { display: none; }
+
+  /* Pestaña Pendientes: dos columnas, ToDo y Seguimiento */
+  #columnas { flex: 1; min-height: 0; display: flex; border-top: 1px solid var(--border); }
+  .columna { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; transition: background .15s; }
+  .columna + .columna { border-left: 1px solid var(--border); }
+  .columna.seg { background: #faf8ff; }
+  .col-cab {
+    display: flex; align-items: center; gap: 6px; padding: 8px 12px 4px;
+    font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted);
+  }
+  .col-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  .seg .col-dot { background: var(--seg); }
+  .col-num { font-weight: 600; letter-spacing: 0; background: var(--surface); border-radius: 999px; padding: 0 7px; }
+  .seg .col-num { background: var(--seg-soft); color: var(--seg-text); }
+  .lista-col { flex: 1; min-height: 48px; }
+  .lista-col:has(> .tarea) > .lista-vacia { display: none; }
+  .columna.destino { background: var(--accent-soft); }
+  .columna.seg.destino { background: var(--seg-soft); }
+  @media (max-width: 520px) {
+    #columnas { flex-direction: column; }
+    .columna + .columna { border-left: 0; border-top: 1px solid var(--border); }
+  }
+
+  /* Seguimiento: motivo y botón de mover */
+  .motivo {
+    display: flex; align-items: flex-start; gap: 5px; margin-top: 3px;
+    font-size: 12px; color: var(--seg-text); cursor: pointer; overflow-wrap: anywhere;
+  }
+  .motivo svg { width: 12px; height: 12px; flex: none; margin-top: 2px; }
+  .motivo.sin-motivo { color: var(--muted); font-style: italic; }
+  .motivo:hover .motivo-txt { text-decoration: underline; }
+  .chip-seg {
+    flex: none; font-size: 10px; font-weight: 700; font-style: normal; color: var(--seg-text);
+    background: var(--seg-soft); border-radius: 999px; padding: 0 6px; line-height: 16px;
+  }
+  .motivo-input {
+    display: block; width: 100%; margin-top: 4px; padding: 4px 8px;
+    font: inherit; font-size: 12px; border: 1px solid var(--seg); border-radius: 6px; background: #fff;
+  }
+  .motivo-input:focus { outline: 2px solid var(--seg-soft); }
+  .mover {
+    width: 22px; height: 22px; flex: none; border-radius: 6px; padding: 0;
+    display: grid; place-items: center; color: var(--muted); opacity: 0;
+  }
+  .mover svg { width: 14px; height: 14px; display: block; }
+  .fila:hover > .mover, .mover:focus { opacity: 1; }
+  .mover:hover { background: var(--seg-soft); color: var(--seg-text); }
+  @media (hover: none) { .mover { opacity: 1; } }
 
   /* Fila de tarea */
   .tarea { border-radius: 8px; }
@@ -234,12 +287,23 @@
   </form>
 
   <div class="filtros" role="group" aria-label="Filtro">
-    <button data-f="todas" aria-pressed="true">Todas</button>
-    <button data-f="pendientes" aria-pressed="false">Pendientes</button>
+    <button data-f="todas" aria-pressed="false">Todas</button>
+    <button data-f="pendientes" aria-pressed="true">Pendientes</button>
     <button data-f="hechas" aria-pressed="false">Hechas</button>
   </div>
 
-  <ul id="lista"></ul>
+  <ul id="lista" hidden></ul>
+
+  <div id="columnas">
+    <section class="columna" data-estado="todo" aria-label="ToDo">
+      <div class="col-cab"><span class="col-dot"></span>ToDo <span class="col-num"></span></div>
+      <ul class="lista-col" data-estado="todo"></ul>
+    </section>
+    <section class="columna seg" data-estado="seguimiento" aria-label="Seguimiento">
+      <div class="col-cab"><span class="col-dot"></span>Seguimiento <span class="col-num"></span></div>
+      <ul class="lista-col" data-estado="seguimiento"></ul>
+    </section>
+  </div>
 
   <footer>
     <span id="aviso"></span>
@@ -259,7 +323,8 @@
 (function () {
   var CLAVE = 'mis-tareas-v1';
   var tareas = [];
-  var filtro = 'todas';
+  var filtro = 'pendientes';     // pestaña por defecto
+  var editandoMotivo = null;    // id de la tarea cuyo motivo de seguimiento se está escribiendo
   var foco = null;          // { tipo: 'sub', id } para recolocar el foco tras repintar
   var flashId = null;       // tarea que acaba de completarse sola
   var copiaDeshacer = null;
@@ -330,6 +395,8 @@
         abierta: !!t.abierta,
         icono: ICONOS[t.icono] ? t.icono : null,
         prioridad: PRIORIDADES[t.prioridad] ? t.prioridad : null,
+        estado: t.estado === 'seguimiento' ? 'seguimiento' : 'todo',
+        motivo: typeof t.motivo === 'string' ? t.motivo : '',
         subtareas: Array.isArray(t.subtareas) ? t.subtareas.map(function (s) {
           return { id: s.id || nuevoId(), texto: String(s.texto || ''), hecha: !!s.hecha, icono: ICONOS[s.icono] ? s.icono : null, prioridad: PRIORIDADES[s.prioridad] ? s.prioridad : null };
         }) : []
@@ -390,28 +457,111 @@
     return n;
   }
 
+  var columnas = document.getElementById('columnas');
+  var colTodo = columnas.querySelector('.lista-col[data-estado="todo"]');
+  var colSeg = columnas.querySelector('.lista-col[data-estado="seguimiento"]');
+
+  // Contenedores de tareas visibles ahora mismo (dos columnas en Pendientes, una lista en el resto)
+  function zonas() { return filtro === 'pendientes' ? [colTodo, colSeg] : [lista]; }
+  function idsEn(zona) {
+    return Array.prototype.map.call(zona.querySelectorAll(':scope > .tarea'), function (n) { return n.dataset.id; });
+  }
+
+  var pintando = false;
   function pintar() {
-    lista.innerHTML = '';
-    var visibles = tareas.filter(function (t) {
-      return filtro === 'todas' || (filtro === 'hechas' ? t.hecha : !t.hecha);
-    });
-    if (!visibles.length) {
-      lista.appendChild(el('li', 'lista-vacia', tareas.length ? 'Nada en este filtro' : 'Sin tareas. Escribe una arriba.'));
-    }
-    visibles.forEach(function (t) { lista.appendChild(pintarTarea(t)); });
-
-    var pend = tareas.filter(function (t) { return !t.hecha; }).length;
-    document.getElementById('count').textContent = pend === 1 ? '1 pendiente' : pend + ' pendientes';
-
-    if (foco && foco.tipo === 'sub') {
-      var inp = lista.querySelector('.nueva-sub input[data-id="' + foco.id + '"]');
+    pintando = true;
+    try { pintarTodo(); } finally { pintando = false; }
+    if (editandoMotivo) {
+      var mi = document.querySelector('.tarea[data-id="' + editandoMotivo + '"] .motivo-input');
+      if (mi) { mi.focus(); mi.setSelectionRange(mi.value.length, mi.value.length); }
+    } else if (foco && foco.tipo === 'sub') {
+      var inp = document.querySelector('.nueva-sub input[data-id="' + foco.id + '"]');
       if (inp) inp.focus();
     } else if (foco && foco.tipo === 'asa') {
-      var asa = lista.querySelector('[data-id="' + foco.id + '"] > .fila > .asa, [data-id="' + foco.id + '"].sub > .asa');
+      var asa = document.querySelector('[data-id="' + foco.id + '"] > .fila > .asa, [data-id="' + foco.id + '"].sub > .asa');
       if (asa) asa.focus();
     }
     foco = null;
     flashId = null;
+  }
+
+  function pintarTodo() {
+    var enColumnas = filtro === 'pendientes';
+    lista.hidden = enColumnas;
+    columnas.hidden = !enColumnas;
+    lista.innerHTML = ''; colTodo.innerHTML = ''; colSeg.innerHTML = '';
+
+    if (enColumnas) {
+      var pendientes = tareas.filter(function (t) { return !t.hecha; });
+      var todo = pendientes.filter(function (t) { return t.estado !== 'seguimiento'; });
+      var seg = pendientes.filter(function (t) { return t.estado === 'seguimiento'; });
+      // El aviso de columna vacía se oculta solo (CSS) en cuanto hay alguna tarea dentro
+      colTodo.appendChild(el('li', 'lista-vacia', tareas.length ? 'Nada por hacer' : 'Sin tareas. Escribe una arriba.'));
+      colSeg.appendChild(el('li', 'lista-vacia', 'Arrastra aquí lo que esté a la espera'));
+      todo.forEach(function (t) { colTodo.appendChild(pintarTarea(t)); });
+      seg.forEach(function (t) { colSeg.appendChild(pintarTarea(t)); });
+      colTodo.parentNode.querySelector('.col-num').textContent = todo.length;
+      colSeg.parentNode.querySelector('.col-num').textContent = seg.length;
+    } else {
+      var visibles = tareas.filter(function (t) { return filtro === 'todas' || t.hecha; });
+      if (!visibles.length) {
+        lista.appendChild(el('li', 'lista-vacia', tareas.length ? 'Nada en este filtro' : 'Sin tareas. Escribe una arriba.'));
+      }
+      visibles.forEach(function (t) { lista.appendChild(pintarTarea(t)); });
+    }
+
+    var pend = tareas.filter(function (t) { return !t.hecha; }).length;
+    document.getElementById('count').textContent = pend === 1 ? '1 pendiente' : pend + ' pendientes';
+  }
+
+  // Pasar una tarea entre ToDo y Seguimiento
+  function cambiarEstado(t, nuevo) {
+    if (t.estado === nuevo) return;
+    t.estado = nuevo;
+    if (nuevo === 'seguimiento') {
+      editandoMotivo = t.id;     // pedir el motivo nada más moverla
+    } else {
+      t.motivo = '';
+      if (editandoMotivo === t.id) editandoMotivo = null;
+    }
+  }
+
+  var RELOJ_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+  var FLECHA_DER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+  var FLECHA_IZQ = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>';
+
+  function pintarMotivo(t, cuerpo) {
+    if (editandoMotivo === t.id) {
+      var inp = el('input', 'motivo-input');
+      inp.type = 'text';
+      inp.maxLength = 200;
+      inp.value = t.motivo;
+      inp.placeholder = '¿Por qué pasa a seguimiento? (Enter para guardar)';
+      inp.setAttribute('aria-label', 'Motivo del seguimiento');
+      var hecho = false;
+      function fin(guardarlo) {
+        if (hecho || pintando) return; hecho = true;
+        if (guardarlo) t.motivo = inp.value.trim();
+        editandoMotivo = null;
+        guardar(); pintar();
+      }
+      inp.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); fin(true); }
+        if (e.key === 'Escape') fin(false);
+      });
+      inp.addEventListener('blur', function () { fin(true); });
+      cuerpo.appendChild(inp);
+      return;
+    }
+    var m = el('div', 'motivo' + (t.motivo ? '' : ' sin-motivo'));
+    m.title = t.motivo ? 'Clic para cambiar el motivo' : 'Clic para escribir el motivo';
+    if (filtro !== 'pendientes') m.appendChild(el('span', 'chip-seg', 'Seguimiento'));
+    var ic = el('span');
+    ic.innerHTML = RELOJ_SVG;
+    m.appendChild(ic.firstChild);
+    m.appendChild(el('span', 'motivo-txt', t.motivo || 'Añadir motivo del seguimiento…'));
+    m.addEventListener('click', function () { editandoMotivo = t.id; pintar(); });
+    cuerpo.appendChild(m);
   }
 
   function pintarTarea(t) {
@@ -474,6 +624,21 @@
       barra.appendChild(relleno);
       cuerpo.appendChild(barra);
     }
+    if (!t.hecha && t.estado === 'seguimiento') pintarMotivo(t, cuerpo);
+
+    var mover = null;
+    if (!t.hecha) {
+      var aSeg = t.estado !== 'seguimiento';
+      mover = el('button', 'mover');
+      mover.type = 'button';
+      mover.innerHTML = aSeg ? FLECHA_DER : FLECHA_IZQ;
+      mover.title = aSeg ? 'Pasar a Seguimiento' : 'Volver a ToDo';
+      mover.setAttribute('aria-label', mover.title);
+      mover.addEventListener('click', function () {
+        cambiarEstado(t, aSeg ? 'seguimiento' : 'todo');
+        guardar(); pintar();
+      });
+    }
 
     var del = el('button', 'borrar', '×');
     del.type = 'button';
@@ -492,6 +657,7 @@
     fila.appendChild(icoBtn);
     fila.appendChild(cuerpo);
     if (total) fila.appendChild(el('span', 'contador', hechas + '/' + total));
+    if (mover) fila.appendChild(mover);
     fila.appendChild(del);
     li.appendChild(fila);
 
@@ -617,10 +783,19 @@
     var b = el('button', 'asa');
     b.type = 'button';
     b.innerHTML = ASA_SVG;
-    b.title = 'Arrastra para mover (o usa las flechas ↑ ↓)';
+    b.title = tipo === 'tarea' ? 'Arrastra para mover (flechas ↑ ↓ para ordenar, ← → para cambiar de columna)' : 'Arrastra para mover (o usa las flechas ↑ ↓)';
     b.setAttribute('aria-label', tipo === 'tarea' ? 'Mover tarea' : 'Mover subtarea');
     b.addEventListener('pointerdown', function (e) { empezarArrastre(e, b, tipo, padre); });
     b.addEventListener('keydown', function (e) {
+      if (tipo === 'tarea' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        var t = buscar(id);
+        if (!t || t.hecha) return;
+        e.preventDefault();
+        cambiarEstado(t, e.key === 'ArrowRight' ? 'seguimiento' : 'todo');
+        if (t.estado === 'todo') foco = { tipo: 'asa', id: id };
+        guardar(); pintar();
+        return;
+      }
       if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
       e.preventDefault();
       moverConTeclado(tipo, id, padre, e.key === 'ArrowUp' ? -1 : 1);
@@ -642,9 +817,11 @@
     var item = asa.closest(tipo === 'tarea' ? '.tarea' : '.sub');
     var contenedor = item.parentNode;
     arrastre = {
-      tipo: tipo, padre: padre, item: item, contenedor: contenedor, asa: asa,
-      inicioY: e.clientY, y: e.clientY, movido: false, raf: null, puntero: e.pointerId,
-      ordenInicial: hermanos(contenedor, tipo, null).map(function (n) { return n.dataset.id; }).join(',')
+      tipo: tipo, padre: padre, item: item, contenedor: contenedor, origen: contenedor, asa: asa,
+      inicioX: e.clientX, inicioY: e.clientY, x: e.clientX, y: e.clientY,
+      movido: false, raf: null, puntero: e.pointerId,
+      entreColumnas: tipo === 'tarea' && filtro === 'pendientes',
+      ordenInicial: firmaOrden(tipo, contenedor)
     };
     capturar();
     // Escuchamos en el documento: al mover el elemento en el DOM se pierde la captura del puntero
@@ -653,15 +830,32 @@
     document.addEventListener('pointercancel', cancelarArrastre);
     window.addEventListener('blur', soltarArrastre);
   }
+  function firmaOrden(tipo, contenedor) {
+    if (tipo === 'tarea') return zonas().map(idsEn).map(function (l) { return l.join(','); }).join('|');
+    return hermanos(contenedor, tipo, null).map(function (n) { return n.dataset.id; }).join(',');
+  }
+  function zonaConScroll() {
+    return arrastre.tipo === 'tarea' ? arrastre.contenedor : arrastre.item.closest('#lista, .lista-col');
+  }
+  // Columna (ToDo o Seguimiento) que hay bajo el puntero
+  function columnaEn(x, y) {
+    var cols = columnas.querySelectorAll('.columna');
+    for (var i = 0; i < cols.length; i++) {
+      var r = cols[i].getBoundingClientRect();
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return cols[i].querySelector('.lista-col');
+    }
+    return null;
+  }
   function capturar() {
     try { arrastre.asa.setPointerCapture(arrastre.puntero); } catch (err) {}
   }
 
   function moverArrastre(e) {
     if (!arrastre || e.pointerId !== arrastre.puntero) return;
+    arrastre.x = e.clientX;
     arrastre.y = e.clientY;
     if (!arrastre.movido) {
-      if (Math.abs(e.clientY - arrastre.inicioY) < 4) return;
+      if (Math.abs(e.clientY - arrastre.inicioY) < 4 && Math.abs(e.clientX - arrastre.inicioX) < 4) return;
       arrastre.movido = true;
       arrastre.item.classList.add('arrastrando-item');
       document.body.classList.add('arrastrando');
@@ -672,6 +866,13 @@
 
   function recolocar() {
     var a = arrastre;
+    if (a.entreColumnas) {
+      var destino = columnaEn(a.x, a.y);
+      if (destino && destino !== a.contenedor) a.contenedor = destino;
+      columnas.querySelectorAll('.columna').forEach(function (c) {
+        c.classList.toggle('destino', a.contenedor !== a.origen && c.contains(a.contenedor));
+      });
+    }
     var otros = hermanos(a.contenedor, a.tipo, a.item);
     var antesDe = null;
     for (var i = 0; i < otros.length; i++) {
@@ -693,11 +894,12 @@
   // Desplazar la lista si arrastras cerca del borde superior o inferior
   function autoScroll() {
     if (!arrastre) return;
-    var r = lista.getBoundingClientRect();
+    var zona = zonaConScroll();
+    var r = zona.getBoundingClientRect();
     var margen = 28, paso = 0;
     if (arrastre.y < r.top + margen) paso = -Math.ceil((r.top + margen - arrastre.y) / 4);
     else if (arrastre.y > r.bottom - margen) paso = Math.ceil((arrastre.y - (r.bottom - margen)) / 4);
-    if (paso) { lista.scrollTop += paso; recolocar(); }
+    if (paso) { zona.scrollTop += paso; recolocar(); }
     arrastre.raf = requestAnimationFrame(autoScroll);
   }
 
@@ -712,6 +914,7 @@
     try { a.asa.releasePointerCapture(a.puntero); } catch (err) {}
     a.item.classList.remove('arrastrando-item');
     document.body.classList.remove('arrastrando');
+    columnas.querySelectorAll('.columna.destino').forEach(function (c) { c.classList.remove('destino'); });
     return a;
   }
 
@@ -719,10 +922,17 @@
     if (!arrastre) return;
     var a = terminarArrastre();
     if (!a.movido) return;
-    var orden = hermanos(a.contenedor, a.tipo, null).map(function (n) { return n.dataset.id; });
-    if (orden.join(',') === a.ordenInicial) return;
-    if (a.tipo === 'tarea') aplicarOrdenTareas(orden);
-    else aplicarOrdenSubtareas(a.padre, orden);
+    if (firmaOrden(a.tipo, a.contenedor) === a.ordenInicial) return;
+    if (a.tipo === 'tarea') {
+      if (a.entreColumnas) {
+        // La columna donde se suelta decide el estado
+        idsEn(colTodo).forEach(function (id) { cambiarEstado(buscar(id), 'todo'); });
+        idsEn(colSeg).forEach(function (id) { cambiarEstado(buscar(id), 'seguimiento'); });
+      }
+      aplicarOrdenTareas([].concat.apply([], zonas().map(idsEn)));
+    } else {
+      aplicarOrdenSubtareas(a.padre, hermanos(a.contenedor, a.tipo, null).map(function (n) { return n.dataset.id; }));
+    }
     guardar(); pintar();
   }
 
@@ -750,11 +960,14 @@
 
   function moverConTeclado(tipo, id, padre, dir) {
     if (tipo === 'tarea') {
-      var visibles = Array.prototype.map.call(lista.querySelectorAll(':scope > .tarea'), function (n) { return n.dataset.id; });
+      var nodo = document.querySelector('.tarea[data-id="' + id + '"]');
+      if (!nodo) return;
+      var cont = nodo.parentNode;
+      var visibles = idsEn(cont);
       var i = visibles.indexOf(id), j = i + dir;
       if (i < 0 || j < 0 || j >= visibles.length) return;
       visibles.splice(i, 1); visibles.splice(j, 0, id);
-      aplicarOrdenTareas(visibles);
+      aplicarOrdenTareas([].concat.apply([], zonas().map(function (z) { return z === cont ? visibles : idsEn(z); })));
     } else {
       var orden = padre.subtareas.map(function (s) { return s.id; });
       var k = orden.indexOf(id), m = k + dir;
@@ -849,7 +1062,7 @@
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && menuAbierto) cerrarMenu();
   });
-  lista.addEventListener('scroll', cerrarMenu);
+  [lista, colTodo, colSeg].forEach(function (z) { z.addEventListener('scroll', cerrarMenu); });
 
   // ---------- Controles generales ----------
   var botonIconoNueva = document.getElementById('icono-nueva');
@@ -888,7 +1101,7 @@
     var inp = document.getElementById('nueva');
     var v = inp.value.trim();
     if (!v) return;
-    tareas.unshift({ id: nuevoId(), texto: v, hecha: false, creada: Date.now(), abierta: false, icono: iconoNueva, prioridad: prioNueva, subtareas: [] });
+    tareas.unshift({ id: nuevoId(), texto: v, hecha: false, creada: Date.now(), abierta: false, icono: iconoNueva, prioridad: prioNueva, estado: 'todo', motivo: '', subtareas: [] });
     inp.value = '';
     iconoNueva = null;
     prioNueva = null;

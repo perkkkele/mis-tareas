@@ -95,7 +95,7 @@
   .sub .texto { flex: 1; min-width: 0; }
   .nueva-sub { padding: 3px 4px; }
   .nueva-sub input {
-    width: 100%; font: inherit; font-size: 13px; padding: 4px 8px;
+    flex: 1; min-width: 0; width: 100%; font: inherit; font-size: 13px; padding: 4px 8px;
     border: 1px dashed var(--border); border-radius: 6px; background: transparent;
   }
   .nueva-sub input:focus { outline: none; border-style: solid; border-color: var(--accent); background: #fff; }
@@ -122,8 +122,11 @@
   }
   .icono-btn:hover { background: var(--border); }
   .icono-btn.vacio { color: var(--muted); opacity: 0; }
-  .fila:hover .icono-btn.vacio, .icono-btn.vacio:focus { opacity: .6; }
-  .hecha > .fila .icono-btn:not(.vacio) { opacity: .45; }
+  .fila:hover .icono-btn.vacio, .sub:hover .icono-btn.vacio, .nueva-sub .icono-btn.vacio, .icono-btn.vacio:focus { opacity: .6; }
+  .hecha > .fila .icono-btn:not(.vacio), .sub.hecha .icono-btn:not(.vacio) { opacity: .45; }
+  .sub .icono-btn, .nueva-sub .icono-btn { width: 20px; height: 20px; }
+  .sub .ico, .nueva-sub .ico { width: 14px; height: 14px; }
+  .nueva-sub { display: flex; align-items: center; gap: 6px; }
   @media (hover: none) { .icono-btn.vacio { opacity: .4; } }
 
   #icono-nueva {
@@ -198,6 +201,7 @@
   var copiaDeshacer = null;
   var temporizador = null;
   var iconoNueva = null;    // icono elegido para la próxima tarea
+  var iconoNuevaSub = {};   // icono elegido para la próxima subtarea, por tarea
 
   // ---------- Iconos ----------
   var ICONOS = {
@@ -235,7 +239,7 @@
         abierta: !!t.abierta,
         icono: ICONOS[t.icono] ? t.icono : null,
         subtareas: Array.isArray(t.subtareas) ? t.subtareas.map(function (s) {
-          return { id: s.id || nuevoId(), texto: String(s.texto || ''), hecha: !!s.hecha };
+          return { id: s.id || nuevoId(), texto: String(s.texto || ''), hecha: !!s.hecha, icono: ICONOS[s.icono] ? s.icono : null };
         }) : []
       };
     });
@@ -409,6 +413,16 @@
         sincronizar(t);
         guardar(); pintar();
       });
+      var icoBtn = el('button', 'icono-btn' + (s.icono ? '' : ' vacio'));
+      icoBtn.type = 'button';
+      pintarIcono(icoBtn, s.icono);
+      icoBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        abrirPicker(icoBtn, s.icono, function (clave) {
+          s.icono = clave;
+          guardar(); pintar();
+        });
+      });
       var span = el('span', 'texto', s.texto);
       span.title = 'Doble clic para editar';
       span.addEventListener('dblclick', function () {
@@ -424,11 +438,23 @@
         });
         guardar(); pintar();
       });
-      li.appendChild(cb); li.appendChild(span); li.appendChild(del);
+      li.appendChild(cb); li.appendChild(icoBtn); li.appendChild(span); li.appendChild(del);
       ul.appendChild(li);
     });
 
     var nueva = el('li', 'nueva-sub');
+    var icoNueva = el('button', 'icono-btn' + (iconoNuevaSub[t.id] ? '' : ' vacio'));
+    icoNueva.type = 'button';
+    pintarIcono(icoNueva, iconoNuevaSub[t.id]);
+    icoNueva.addEventListener('click', function (e) {
+      e.stopPropagation();
+      abrirPicker(icoNueva, iconoNuevaSub[t.id], function (clave) {
+        iconoNuevaSub[t.id] = clave;
+        foco = { tipo: 'sub', id: t.id };
+        pintar();
+      });
+    });
+    nueva.appendChild(icoNueva);
     var inp = el('input');
     inp.type = 'text';
     inp.maxLength = 200;
@@ -440,7 +466,8 @@
         e.preventDefault();
         var v = inp.value.trim();
         if (!v) return;
-        t.subtareas.push({ id: nuevoId(), texto: v, hecha: false });
+        t.subtareas.push({ id: nuevoId(), texto: v, hecha: false, icono: iconoNuevaSub[t.id] || null });
+        delete iconoNuevaSub[t.id];
         sincronizar(t);
         foco = { tipo: 'sub', id: t.id };
         guardar(); pintar();

@@ -113,6 +113,47 @@
   #deshacer-wrap { display: none; align-items: center; gap: 6px; color: var(--text); }
   #deshacer-wrap.visible { display: flex; }
   #deshacer { color: var(--accent); font-weight: 600; font-size: 12px; padding: 2px 4px; }
+
+  /* Iconos */
+  .ico { width: 16px; height: 16px; display: block; }
+  .icono-btn {
+    width: 22px; height: 22px; flex: none; border-radius: 6px;
+    display: grid; place-items: center;
+  }
+  .icono-btn:hover { background: var(--border); }
+  .icono-btn.vacio { color: var(--muted); opacity: 0; }
+  .fila:hover .icono-btn.vacio, .icono-btn.vacio:focus { opacity: .6; }
+  .hecha > .fila .icono-btn:not(.vacio) { opacity: .45; }
+  @media (hover: none) { .icono-btn.vacio { opacity: .4; } }
+
+  #icono-nueva {
+    width: 34px; flex: none; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface);
+    display: grid; place-items: center; color: var(--muted);
+  }
+  #icono-nueva:hover { border-color: var(--accent); }
+  #icono-nueva.elegido { background: #fff; }
+
+  #picker {
+    position: fixed; z-index: 10; display: none;
+    background: #fff; border: 1px solid var(--border); border-radius: 10px;
+    box-shadow: 0 6px 20px rgba(20, 30, 50, .16);
+    padding: 6px; width: 172px;
+  }
+  #picker.abierto { display: block; }
+  #picker .rejilla { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+  #picker .opcion {
+    height: 36px; border-radius: 8px; display: grid; place-items: center;
+  }
+  #picker .opcion:hover, #picker .opcion:focus { background: var(--surface); outline: none; }
+  #picker .opcion[aria-pressed="true"] { background: var(--accent-soft); }
+  #picker .opcion .ico { width: 18px; height: 18px; }
+  #picker .nombre { font-size: 11px; color: var(--muted); text-align: center; height: 16px; margin-top: 4px; }
+  #picker .quitar {
+    width: 100%; margin-top: 4px; padding: 4px; border-radius: 6px;
+    font-size: 12px; color: var(--muted);
+  }
+  #picker .quitar:hover { background: #fdecec; color: var(--danger); }
 </style>
 </head>
 <body>
@@ -122,6 +163,7 @@
   </header>
 
   <form id="form" autocomplete="off">
+    <button id="icono-nueva" type="button" title="Elegir icono" aria-label="Elegir icono para la nueva tarea"></button>
     <input id="nueva" type="text" placeholder="Nueva tarea y pulsa Enter" maxlength="200" aria-label="Nueva tarea">
     <button id="anadir" type="submit" aria-label="Añadir tarea">+</button>
   </form>
@@ -140,6 +182,12 @@
     <button id="limpiar" type="button">Borrar hechas</button>
   </footer>
 
+  <div id="picker" role="dialog" aria-label="Elegir icono">
+    <div class="rejilla"></div>
+    <div class="nombre"></div>
+    <button class="quitar" type="button">Sin icono</button>
+  </div>
+
 <script>
 (function () {
   var CLAVE = 'mis-tareas-v1';
@@ -149,6 +197,31 @@
   var flashId = null;       // tarea que acaba de completarse sola
   var copiaDeshacer = null;
   var temporizador = null;
+  var iconoNueva = null;    // icono elegido para la próxima tarea
+
+  // ---------- Iconos ----------
+  var ICONOS = {
+    llamar:    { nombre: 'Llamar',    color: '#1f9d55', svg: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/>' },
+    ordenador: { nombre: 'Ordenador', color: '#4b5563', svg: '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>' },
+    casa:      { nombre: 'Casa',      color: '#d97706', svg: '<path d="M3 9.5 12 3l9 6.5V20a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>' },
+    email:     { nombre: 'Email',     color: '#2f6fed', svg: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>' },
+    comprar:   { nombre: 'Comprar',   color: '#db2777', svg: '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>' },
+    reunion:   { nombre: 'Reunión',   color: '#7c3aed', svg: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>' },
+    pagar:     { nombre: 'Pagar',     color: '#0d9488', svg: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/>' },
+    preguntar: { nombre: 'Preguntar', color: '#ea580c', svg: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/>' }
+  };
+  var ICONO_VACIO = '<circle cx="12" cy="12" r="9" stroke-dasharray="3 3"/><path d="M12 8.5v7M8.5 12h7"/>';
+
+  function svg(contenido) {
+    return '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + contenido + '</svg>';
+  }
+  function pintarIcono(boton, clave) {
+    var ic = ICONOS[clave];
+    boton.innerHTML = svg(ic ? ic.svg : ICONO_VACIO);
+    boton.style.color = ic ? ic.color : '';
+    boton.title = ic ? ic.nombre + ' · cambiar icono' : 'Poner icono';
+    boton.setAttribute('aria-label', boton.title);
+  }
 
   // ---------- Datos ----------
   function normalizar(lista) {
@@ -160,6 +233,7 @@
         hecha: !!t.hecha,
         creada: t.creada || Date.now(),
         abierta: !!t.abierta,
+        icono: ICONOS[t.icono] ? t.icono : null,
         subtareas: Array.isArray(t.subtareas) ? t.subtareas.map(function (s) {
           return { id: s.id || nuevoId(), texto: String(s.texto || ''), hecha: !!s.hecha };
         }) : []
@@ -274,6 +348,17 @@
       guardar(); pintar();
     });
 
+    var icoBtn = el('button', 'icono-btn' + (t.icono ? '' : ' vacio'));
+    icoBtn.type = 'button';
+    pintarIcono(icoBtn, t.icono);
+    icoBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      abrirPicker(icoBtn, t.icono, function (clave) {
+        t.icono = clave;
+        guardar(); pintar();
+      });
+    });
+
     var cuerpo = el('div', 'cuerpo');
     var span = el('span', 'texto', t.texto);
     span.title = 'Doble clic para editar';
@@ -301,6 +386,7 @@
 
     fila.appendChild(exp);
     fila.appendChild(cb);
+    fila.appendChild(icoBtn);
     fila.appendChild(cuerpo);
     if (total) fila.appendChild(el('span', 'contador', hechas + '/' + total));
     fila.appendChild(del);
@@ -387,14 +473,95 @@
     inp.addEventListener('blur', function () { fin(true); });
   }
 
+  // ---------- Selector de iconos ----------
+  var picker = document.getElementById('picker');
+  var rejilla = picker.querySelector('.rejilla');
+  var nombrePicker = picker.querySelector('.nombre');
+  var alElegir = null;
+  var anclaPicker = null;
+
+  Object.keys(ICONOS).forEach(function (clave) {
+    var b = el('button', 'opcion');
+    b.type = 'button';
+    b.dataset.clave = clave;
+    b.innerHTML = svg(ICONOS[clave].svg);
+    b.style.color = ICONOS[clave].color;
+    b.title = ICONOS[clave].nombre;
+    b.setAttribute('aria-label', ICONOS[clave].nombre);
+    b.addEventListener('mouseenter', function () { nombrePicker.textContent = ICONOS[clave].nombre; });
+    b.addEventListener('focus', function () { nombrePicker.textContent = ICONOS[clave].nombre; });
+    b.addEventListener('click', function () { elegir(clave); });
+    rejilla.appendChild(b);
+  });
+  picker.querySelector('.quitar').addEventListener('click', function () { elegir(null); });
+
+  function abrirPicker(ancla, actual, callback) {
+    if (picker.classList.contains('abierto') && anclaPicker === ancla) { cerrarPicker(); return; }
+    alElegir = callback;
+    anclaPicker = ancla;
+    rejilla.querySelectorAll('.opcion').forEach(function (b) {
+      b.setAttribute('aria-pressed', b.dataset.clave === actual ? 'true' : 'false');
+    });
+    nombrePicker.textContent = actual ? ICONOS[actual].nombre : 'Elige un icono';
+    picker.classList.add('abierto');
+    // Colocarlo bajo el botón, sin salirse del bloque
+    var r = ancla.getBoundingClientRect();
+    var w = picker.offsetWidth, h = picker.offsetHeight;
+    var vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight;
+    var top = r.bottom + 4;
+    if (top + h > vh - 4) top = Math.max(4, r.top - h - 4);
+    var left = Math.min(Math.max(4, r.left), vw - w - 4);
+    picker.style.top = top + 'px';
+    picker.style.left = Math.max(4, left) + 'px';
+    var primero = rejilla.querySelector('[aria-pressed="true"]') || rejilla.querySelector('.opcion');
+    primero.focus();
+  }
+  function cerrarPicker() {
+    picker.classList.remove('abierto');
+    alElegir = null;
+    anclaPicker = null;
+  }
+  function elegir(clave) {
+    var cb = alElegir;
+    cerrarPicker();
+    if (cb) cb(clave);
+  }
+  document.addEventListener('click', function (e) {
+    if (picker.classList.contains('abierto') && !picker.contains(e.target) && e.target !== anclaPicker && !(anclaPicker && anclaPicker.contains(e.target))) {
+      cerrarPicker();
+    }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && picker.classList.contains('abierto')) cerrarPicker();
+  });
+  lista.addEventListener('scroll', cerrarPicker);
+
   // ---------- Controles generales ----------
+  var botonIconoNueva = document.getElementById('icono-nueva');
+  function pintarIconoNueva() {
+    pintarIcono(botonIconoNueva, iconoNueva);
+    botonIconoNueva.classList.toggle('elegido', !!iconoNueva);
+    botonIconoNueva.title = iconoNueva ? ICONOS[iconoNueva].nombre + ' · cambiar icono' : 'Elegir icono';
+  }
+  botonIconoNueva.addEventListener('click', function (e) {
+    e.stopPropagation();
+    abrirPicker(botonIconoNueva, iconoNueva, function (clave) {
+      iconoNueva = clave;
+      pintarIconoNueva();
+      document.getElementById('nueva').focus();
+    });
+  });
+  pintarIconoNueva();
+
   document.getElementById('form').addEventListener('submit', function (e) {
     e.preventDefault();
     var inp = document.getElementById('nueva');
     var v = inp.value.trim();
     if (!v) return;
-    tareas.unshift({ id: nuevoId(), texto: v, hecha: false, creada: Date.now(), abierta: false, subtareas: [] });
+    tareas.unshift({ id: nuevoId(), texto: v, hecha: false, creada: Date.now(), abierta: false, icono: iconoNueva, subtareas: [] });
     inp.value = '';
+    iconoNueva = null;
+    pintarIconoNueva();
     guardar(); pintar();
   });
 

@@ -36,7 +36,7 @@
   h1 { font-size: 15px; margin: 0; font-weight: 650; }
   #count { color: var(--muted); font-size: 12px; }
 
-  form#form { display: flex; gap: 6px; padding: 0 12px 8px; }
+  form#form { display: flex; gap: 6px; padding: 8px 12px 4px; border-top: 1px solid var(--border); }
   #nueva {
     flex: 1; min-width: 0; padding: 7px 10px;
     border: 1px solid var(--border); border-radius: 8px;
@@ -77,20 +77,36 @@
   }
 
   /* Seguimiento: motivo y botón de mover */
+  /* Título + motivo en la misma línea; el motivo va a la derecha como una píldora */
+  .linea-titulo { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+  .linea-titulo .texto { flex: 1 1 auto; min-width: 50%; }
   .motivo {
-    display: flex; align-items: flex-start; gap: 5px; margin-top: 3px;
-    font-size: 12px; color: var(--seg-text); cursor: pointer; overflow-wrap: anywhere;
+    margin-left: auto; margin-top: -1px; flex: 0 1 auto; min-width: 0; max-width: 50%;
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 2px 9px 2px 7px; border-radius: 999px;
+    background: var(--seg-soft); color: var(--seg-text);
+    font: inherit; font-size: 11.5px; font-weight: 500; line-height: 18px;
+    box-shadow: inset 0 0 0 1px rgba(109, 40, 217, .14), 0 1px 1px rgba(20, 30, 50, .06);
+    cursor: pointer; transition: background .12s, box-shadow .12s;
   }
-  .motivo svg { width: 12px; height: 12px; flex: none; margin-top: 2px; }
-  .motivo.sin-motivo { color: var(--muted); font-style: italic; }
-  .motivo:hover .motivo-txt { text-decoration: underline; }
-  .chip-seg {
-    flex: none; font-size: 10px; font-weight: 700; font-style: normal; color: var(--seg-text);
-    background: var(--seg-soft); border-radius: 999px; padding: 0 6px; line-height: 16px;
+  .motivo, .motivo-input { transition: margin-right .12s, background .12s, box-shadow .12s; }
+  .fila:hover .motivo, .fila:focus-within .motivo, .fila:hover .motivo-input { margin-right: 50px; }
+  @media (hover: none) { .fila:hover .motivo, .fila:focus-within .motivo, .fila:hover .motivo-input { margin-right: 0; } }
+  .motivo:hover { background: #ddd6fe; box-shadow: inset 0 0 0 1px rgba(109, 40, 217, .28), 0 1px 2px rgba(20, 30, 50, .1); }
+  .motivo:focus-visible { outline: 2px solid var(--seg); outline-offset: 1px; }
+  .motivo svg { width: 12px; height: 12px; flex: none; }
+  .motivo-txt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .motivo.sin-motivo {
+    background: transparent; color: var(--muted); font-style: italic;
+    box-shadow: inset 0 0 0 1px var(--border); border: 0;
   }
+  .motivo.sin-motivo:hover { background: var(--seg-soft); color: var(--seg-text); }
+  .chip-seg { flex: none; font-weight: 700; }
+  .chip-seg::after { content: '·'; margin-left: 5px; font-weight: 400; }
+  .motivo.solo-chip .chip-seg::after { content: none; }
   .motivo-input {
-    display: block; width: 100%; margin-top: 4px; padding: 4px 8px;
-    font: inherit; font-size: 12px; border: 1px solid var(--seg); border-radius: 6px; background: #fff;
+    margin-left: auto; margin-top: -2px; flex: 0 1 55%; max-width: 280px; min-width: 0; padding: 3px 10px;
+    font: inherit; font-size: 12px; border: 1px solid var(--seg); border-radius: 999px; background: #fff;
   }
   .motivo-input:focus { outline: 2px solid var(--seg-soft); }
   .mover {
@@ -106,7 +122,22 @@
   .tarea { border-radius: 8px; }
   .tarea.flash { animation: flash 1.2s ease-out; }
   @keyframes flash { 0% { background: var(--ok-soft); } 100% { background: transparent; } }
-  .fila { display: flex; align-items: center; gap: 6px; padding: 5px 4px; border-radius: 8px; }
+  .fila > .asa { position: absolute; left: -6px; top: 50%; transform: translateY(-50%); width: 12px; }
+  .fila { position: relative; display: flex; align-items: center; gap: 5px; padding: 5px 4px; border-radius: 8px; }
+  /* Botones de mover y borrar: flotan sobre el final de la fila al pasar el ratón, sin quitar espacio al título */
+  .acciones {
+    position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+    display: flex; align-items: center; gap: 2px; padding-left: 14px;
+    background: linear-gradient(to right, transparent, var(--surface) 14px);
+    opacity: 0; pointer-events: none; border-radius: 0 8px 8px 0;
+  }
+  .fila:hover > .acciones, .acciones:focus-within { opacity: 1; pointer-events: auto; }
+  .columna.seg .fila:hover { background: #f1edfd; }
+  .columna.seg .acciones { background: linear-gradient(to right, transparent, #f1edfd 14px); }
+  .acciones .mover, .acciones .borrar { opacity: 1; }
+  @media (hover: none) {
+    .acciones { position: static; transform: none; opacity: 1; pointer-events: auto; background: none; padding-left: 0; }
+  }
   .fila:hover { background: var(--surface); }
   /* Triángulo de desplegar: macizo y oscuro si hay subtareas, fino y claro si no */
   .expandir {
@@ -161,7 +192,7 @@
 
   footer {
     display: flex; justify-content: space-between; align-items: center; gap: 8px;
-    padding: 6px 12px 8px; border-top: 1px solid var(--border);
+    padding: 2px 12px 6px; min-height: 26px;
     font-size: 12px; color: var(--muted);
   }
   #limpiar { color: var(--muted); font-size: 12px; padding: 2px 4px; }
@@ -279,13 +310,6 @@
     <span id="count"></span>
   </header>
 
-  <form id="form" autocomplete="off">
-    <button id="prio-nueva" type="button" title="Elegir importancia" aria-label="Elegir importancia para la nueva tarea"></button>
-    <button id="icono-nueva" type="button" title="Elegir icono" aria-label="Elegir icono para la nueva tarea"></button>
-    <input id="nueva" type="text" placeholder="Nueva tarea y pulsa Enter" maxlength="200" aria-label="Nueva tarea">
-    <button id="anadir" type="submit" aria-label="Añadir tarea">+</button>
-  </form>
-
   <div class="filtros" role="group" aria-label="Filtro">
     <button data-f="todas" aria-pressed="false">Todas</button>
     <button data-f="pendientes" aria-pressed="true">Pendientes</button>
@@ -304,6 +328,13 @@
       <ul class="lista-col" data-estado="seguimiento"></ul>
     </section>
   </div>
+
+  <form id="form" autocomplete="off">
+    <button id="prio-nueva" type="button" title="Elegir importancia" aria-label="Elegir importancia para la nueva tarea"></button>
+    <button id="icono-nueva" type="button" title="Elegir icono" aria-label="Elegir icono para la nueva tarea"></button>
+    <input id="nueva" type="text" placeholder="Nueva tarea y pulsa Enter" maxlength="200" aria-label="Nueva tarea">
+    <button id="anadir" type="submit" aria-label="Añadir tarea">+</button>
+  </form>
 
   <footer>
     <span id="aviso"></span>
@@ -530,13 +561,14 @@
   var FLECHA_DER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
   var FLECHA_IZQ = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>';
 
-  function pintarMotivo(t, cuerpo) {
+  function pintarMotivo(t, contenedor) {
     if (editandoMotivo === t.id) {
       var inp = el('input', 'motivo-input');
       inp.type = 'text';
       inp.maxLength = 200;
       inp.value = t.motivo;
-      inp.placeholder = '¿Por qué pasa a seguimiento? (Enter para guardar)';
+      inp.placeholder = 'Motivo del seguimiento…';
+      inp.title = 'Escribe el motivo y pulsa Enter';
       inp.setAttribute('aria-label', 'Motivo del seguimiento');
       var hecho = false;
       function fin(guardarlo) {
@@ -550,18 +582,20 @@
         if (e.key === 'Escape') fin(false);
       });
       inp.addEventListener('blur', function () { fin(true); });
-      cuerpo.appendChild(inp);
+      contenedor.appendChild(inp);
       return;
     }
-    var m = el('div', 'motivo' + (t.motivo ? '' : ' sin-motivo'));
-    m.title = t.motivo ? 'Clic para cambiar el motivo' : 'Clic para escribir el motivo';
-    if (filtro !== 'pendientes') m.appendChild(el('span', 'chip-seg', 'Seguimiento'));
+    var enTodas = filtro !== 'pendientes';
+    var m = el('button', 'motivo' + (t.motivo || enTodas ? '' : ' sin-motivo') + (enTodas && !t.motivo ? ' solo-chip' : ''));
+    m.type = 'button';
+    m.title = t.motivo ? 'Motivo: ' + t.motivo + ' · clic para cambiarlo' : 'Clic para escribir el motivo del seguimiento';
     var ic = el('span');
     ic.innerHTML = RELOJ_SVG;
     m.appendChild(ic.firstChild);
-    m.appendChild(el('span', 'motivo-txt', t.motivo || 'Añadir motivo del seguimiento…'));
+    if (enTodas) m.appendChild(el('span', 'chip-seg', 'Seguimiento'));
+    if (t.motivo || !enTodas) m.appendChild(el('span', 'motivo-txt', t.motivo || 'Motivo'));
     m.addEventListener('click', function () { editandoMotivo = t.id; pintar(); });
-    cuerpo.appendChild(m);
+    contenedor.appendChild(m);
   }
 
   function pintarTarea(t) {
@@ -616,7 +650,10 @@
     span.addEventListener('dblclick', function () {
       editarEn(span, t.texto, function (v) { t.texto = v; });
     });
-    cuerpo.appendChild(span);
+    var linea = el('div', 'linea-titulo');
+    linea.appendChild(span);
+    if (!t.hecha && t.estado === 'seguimiento') pintarMotivo(t, linea);
+    cuerpo.appendChild(linea);
     if (total) {
       var barra = el('div', 'barra');
       var relleno = el('i');
@@ -624,7 +661,6 @@
       barra.appendChild(relleno);
       cuerpo.appendChild(barra);
     }
-    if (!t.hecha && t.estado === 'seguimiento') pintarMotivo(t, cuerpo);
 
     var mover = null;
     if (!t.hecha) {
@@ -657,8 +693,10 @@
     fila.appendChild(icoBtn);
     fila.appendChild(cuerpo);
     if (total) fila.appendChild(el('span', 'contador', hechas + '/' + total));
-    if (mover) fila.appendChild(mover);
-    fila.appendChild(del);
+    var acciones = el('div', 'acciones');
+    if (mover) acciones.appendChild(mover);
+    acciones.appendChild(del);
+    fila.appendChild(acciones);
     li.appendChild(fila);
 
     if (t.abierta) li.appendChild(pintarSubtareas(t));

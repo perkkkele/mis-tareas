@@ -137,13 +137,14 @@
   #icono-nueva:hover { border-color: var(--accent); }
   #icono-nueva.elegido { background: #fff; }
 
-  #picker {
+  .menu {
     position: fixed; z-index: 10; display: none;
     background: #fff; border: 1px solid var(--border); border-radius: 10px;
     box-shadow: 0 6px 20px rgba(20, 30, 50, .16);
-    padding: 6px; width: 172px;
+    padding: 6px;
   }
-  #picker.abierto { display: block; }
+  .menu.abierto { display: block; }
+  #picker { width: 172px; }
   #picker .rejilla { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
   #picker .opcion {
     height: 36px; border-radius: 8px; display: grid; place-items: center;
@@ -152,11 +153,48 @@
   #picker .opcion[aria-pressed="true"] { background: var(--accent-soft); }
   #picker .opcion .ico { width: 18px; height: 18px; }
   #picker .nombre { font-size: 11px; color: var(--muted); text-align: center; height: 16px; margin-top: 4px; }
-  #picker .quitar {
+  .menu .quitar {
     width: 100%; margin-top: 4px; padding: 4px; border-radius: 6px;
     font-size: 12px; color: var(--muted);
   }
-  #picker .quitar:hover { background: #fdecec; color: var(--danger); }
+  .menu .quitar:hover { background: #fdecec; color: var(--danger); }
+
+  /* Importancia (semáforo) */
+  .punto {
+    display: block; width: 10px; height: 10px; border-radius: 50%;
+    background: var(--c, transparent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--c, transparent) 22%, transparent);
+  }
+  .prio-btn {
+    width: 18px; height: 22px; flex: none; border-radius: 6px; padding: 0;
+    display: grid; place-items: center;
+  }
+  .prio-btn:hover { background: var(--border); }
+  .prio-btn.vacio .punto { background: transparent; box-shadow: none; border: 1.5px dashed var(--muted); width: 9px; height: 9px; }
+  .prio-btn.vacio { opacity: 0; }
+  .fila:hover .prio-btn.vacio, .sub:hover .prio-btn.vacio, .nueva-sub .prio-btn.vacio, .prio-btn.vacio:focus { opacity: .6; }
+  .hecha > .fila .prio-btn:not(.vacio), .sub.hecha .prio-btn:not(.vacio) { opacity: .45; }
+  .sub .prio-btn, .nueva-sub .prio-btn { width: 16px; height: 20px; }
+  .sub .punto, .nueva-sub .punto { width: 8px; height: 8px; }
+  .sub .prio-btn.vacio .punto, .nueva-sub .prio-btn.vacio .punto { width: 7px; height: 7px; }
+  @media (hover: none) { .prio-btn.vacio { opacity: .4; } }
+
+  #prio-nueva {
+    width: 26px; flex: none; border-radius: 8px; padding: 0;
+    border: 1px solid var(--border); background: var(--surface);
+    display: grid; place-items: center;
+  }
+  #prio-nueva:hover { border-color: var(--accent); }
+  #prio-nueva.elegido { background: #fff; }
+  #prio-nueva.vacio .punto { background: transparent; box-shadow: none; border: 1.5px dashed var(--muted); }
+
+  #menu-prio { width: 150px; }
+  #menu-prio .opcion {
+    width: 100%; display: flex; align-items: center; gap: 8px;
+    padding: 6px 8px; border-radius: 8px; font-size: 13px; text-align: left;
+  }
+  #menu-prio .opcion:hover, #menu-prio .opcion:focus { background: var(--surface); outline: none; }
+  #menu-prio .opcion[aria-pressed="true"] { background: var(--accent-soft); font-weight: 600; }
 </style>
 </head>
 <body>
@@ -166,6 +204,7 @@
   </header>
 
   <form id="form" autocomplete="off">
+    <button id="prio-nueva" type="button" title="Elegir importancia" aria-label="Elegir importancia para la nueva tarea"></button>
     <button id="icono-nueva" type="button" title="Elegir icono" aria-label="Elegir icono para la nueva tarea"></button>
     <input id="nueva" type="text" placeholder="Nueva tarea y pulsa Enter" maxlength="200" aria-label="Nueva tarea">
     <button id="anadir" type="submit" aria-label="Añadir tarea">+</button>
@@ -185,7 +224,9 @@
     <button id="limpiar" type="button">Borrar hechas</button>
   </footer>
 
-  <div id="picker" role="dialog" aria-label="Elegir icono">
+  <div id="menu-prio" class="menu" role="dialog" aria-label="Elegir importancia"></div>
+
+  <div id="picker" class="menu" role="dialog" aria-label="Elegir icono">
     <div class="rejilla"></div>
     <div class="nombre"></div>
     <button class="quitar" type="button">Sin icono</button>
@@ -202,6 +243,23 @@
   var temporizador = null;
   var iconoNueva = null;    // icono elegido para la próxima tarea
   var iconoNuevaSub = {};   // icono elegido para la próxima subtarea, por tarea
+  var prioNueva = null;     // importancia elegida para la próxima tarea
+  var prioNuevaSub = {};    // importancia elegida para la próxima subtarea, por tarea
+
+  // ---------- Importancia (semáforo) ----------
+  var PRIORIDADES = {
+    alta:  { nombre: 'Alta',  color: '#dc2626' },
+    media: { nombre: 'Media', color: '#f59e0b' },
+    baja:  { nombre: 'Baja',  color: '#16a34a' }
+  };
+  function pintarBadge(boton, clave) {
+    var pr = PRIORIDADES[clave];
+    boton.innerHTML = '<span class="punto"></span>';
+    if (pr) boton.firstChild.style.setProperty('--c', pr.color);
+    boton.classList.toggle('vacio', !pr);
+    boton.title = pr ? 'Importancia ' + pr.nombre.toLowerCase() + ' · cambiar' : 'Poner importancia';
+    boton.setAttribute('aria-label', boton.title);
+  }
 
   // ---------- Iconos ----------
   var ICONOS = {
@@ -218,6 +276,16 @@
 
   function svg(contenido) {
     return '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + contenido + '</svg>';
+  }
+  function crearBadge(actual, alCambiar) {
+    var b = el('button', 'prio-btn');
+    b.type = 'button';
+    pintarBadge(b, actual);
+    b.addEventListener('click', function (e) {
+      e.stopPropagation();
+      abrirPrio(b, actual, alCambiar);
+    });
+    return b;
   }
   function pintarIcono(boton, clave) {
     var ic = ICONOS[clave];
@@ -238,8 +306,9 @@
         creada: t.creada || Date.now(),
         abierta: !!t.abierta,
         icono: ICONOS[t.icono] ? t.icono : null,
+        prioridad: PRIORIDADES[t.prioridad] ? t.prioridad : null,
         subtareas: Array.isArray(t.subtareas) ? t.subtareas.map(function (s) {
-          return { id: s.id || nuevoId(), texto: String(s.texto || ''), hecha: !!s.hecha, icono: ICONOS[s.icono] ? s.icono : null };
+          return { id: s.id || nuevoId(), texto: String(s.texto || ''), hecha: !!s.hecha, icono: ICONOS[s.icono] ? s.icono : null, prioridad: PRIORIDADES[s.prioridad] ? s.prioridad : null };
         }) : []
       };
     });
@@ -390,6 +459,7 @@
 
     fila.appendChild(exp);
     fila.appendChild(cb);
+    fila.appendChild(crearBadge(t.prioridad, function (clave) { t.prioridad = clave; guardar(); pintar(); }));
     fila.appendChild(icoBtn);
     fila.appendChild(cuerpo);
     if (total) fila.appendChild(el('span', 'contador', hechas + '/' + total));
@@ -438,7 +508,9 @@
         });
         guardar(); pintar();
       });
-      li.appendChild(cb); li.appendChild(icoBtn); li.appendChild(span); li.appendChild(del);
+      li.appendChild(cb);
+      li.appendChild(crearBadge(s.prioridad, function (clave) { s.prioridad = clave; guardar(); pintar(); }));
+      li.appendChild(icoBtn); li.appendChild(span); li.appendChild(del);
       ul.appendChild(li);
     });
 
@@ -454,6 +526,12 @@
         pintar();
       });
     });
+    var prioSub = crearBadge(prioNuevaSub[t.id], function (clave) {
+      prioNuevaSub[t.id] = clave;
+      foco = { tipo: 'sub', id: t.id };
+      pintar();
+    });
+    nueva.appendChild(prioSub);
     nueva.appendChild(icoNueva);
     var inp = el('input');
     inp.type = 'text';
@@ -466,8 +544,9 @@
         e.preventDefault();
         var v = inp.value.trim();
         if (!v) return;
-        t.subtareas.push({ id: nuevoId(), texto: v, hecha: false, icono: iconoNuevaSub[t.id] || null });
+        t.subtareas.push({ id: nuevoId(), texto: v, hecha: false, icono: iconoNuevaSub[t.id] || null, prioridad: prioNuevaSub[t.id] || null });
         delete iconoNuevaSub[t.id];
+        delete prioNuevaSub[t.id];
         sincronizar(t);
         foco = { tipo: 'sub', id: t.id };
         guardar(); pintar();
@@ -504,8 +583,6 @@
   var picker = document.getElementById('picker');
   var rejilla = picker.querySelector('.rejilla');
   var nombrePicker = picker.querySelector('.nombre');
-  var alElegir = null;
-  var anclaPicker = null;
 
   Object.keys(ICONOS).forEach(function (clave) {
     var b = el('button', 'opcion');
@@ -522,46 +599,70 @@
   });
   picker.querySelector('.quitar').addEventListener('click', function () { elegir(null); });
 
-  function abrirPicker(ancla, actual, callback) {
-    if (picker.classList.contains('abierto') && anclaPicker === ancla) { cerrarPicker(); return; }
-    alElegir = callback;
-    anclaPicker = ancla;
-    rejilla.querySelectorAll('.opcion').forEach(function (b) {
+  // Menú de importancia
+  var menuPrio = document.getElementById('menu-prio');
+  Object.keys(PRIORIDADES).forEach(function (clave) {
+    var b = el('button', 'opcion');
+    b.type = 'button';
+    b.dataset.clave = clave;
+    var p = el('span', 'punto');
+    p.style.setProperty('--c', PRIORIDADES[clave].color);
+    b.appendChild(p);
+    b.appendChild(document.createTextNode(PRIORIDADES[clave].nombre));
+    b.addEventListener('click', function () { elegir(clave); });
+    menuPrio.appendChild(b);
+  });
+  var quitarPrio = el('button', 'quitar', 'Sin importancia');
+  quitarPrio.type = 'button';
+  quitarPrio.addEventListener('click', function () { elegir(null); });
+  menuPrio.appendChild(quitarPrio);
+
+  // Lógica común de los menús emergentes
+  var menuAbierto = null;   // { el, ancla, cb }
+  function abrirMenu(menu, ancla, actual, callback) {
+    if (menuAbierto && menuAbierto.ancla === ancla) { cerrarMenu(); return; }
+    cerrarMenu();
+    menuAbierto = { el: menu, ancla: ancla, cb: callback };
+    menu.querySelectorAll('.opcion').forEach(function (b) {
       b.setAttribute('aria-pressed', b.dataset.clave === actual ? 'true' : 'false');
     });
-    nombrePicker.textContent = actual ? ICONOS[actual].nombre : 'Elige un icono';
-    picker.classList.add('abierto');
+    menu.classList.add('abierto');
     // Colocarlo bajo el botón, sin salirse del bloque
     var r = ancla.getBoundingClientRect();
-    var w = picker.offsetWidth, h = picker.offsetHeight;
+    var w = menu.offsetWidth, h = menu.offsetHeight;
     var vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight;
     var top = r.bottom + 4;
     if (top + h > vh - 4) top = Math.max(4, r.top - h - 4);
     var left = Math.min(Math.max(4, r.left), vw - w - 4);
-    picker.style.top = top + 'px';
-    picker.style.left = Math.max(4, left) + 'px';
-    var primero = rejilla.querySelector('[aria-pressed="true"]') || rejilla.querySelector('.opcion');
-    primero.focus();
+    menu.style.top = top + 'px';
+    menu.style.left = Math.max(4, left) + 'px';
+    var primero = menu.querySelector('.opcion[aria-pressed="true"]') || menu.querySelector('.opcion');
+    if (primero) primero.focus();
   }
-  function cerrarPicker() {
-    picker.classList.remove('abierto');
-    alElegir = null;
-    anclaPicker = null;
+  function cerrarMenu() {
+    if (!menuAbierto) return;
+    menuAbierto.el.classList.remove('abierto');
+    menuAbierto = null;
   }
   function elegir(clave) {
-    var cb = alElegir;
-    cerrarPicker();
+    var cb = menuAbierto && menuAbierto.cb;
+    cerrarMenu();
     if (cb) cb(clave);
   }
+  function abrirPicker(ancla, actual, callback) {
+    nombrePicker.textContent = actual ? ICONOS[actual].nombre : 'Elige un icono';
+    abrirMenu(picker, ancla, actual, callback);
+  }
+  function abrirPrio(ancla, actual, callback) {
+    abrirMenu(menuPrio, ancla, actual, callback);
+  }
   document.addEventListener('click', function (e) {
-    if (picker.classList.contains('abierto') && !picker.contains(e.target) && e.target !== anclaPicker && !(anclaPicker && anclaPicker.contains(e.target))) {
-      cerrarPicker();
-    }
+    if (menuAbierto && !menuAbierto.el.contains(e.target) && !menuAbierto.ancla.contains(e.target)) cerrarMenu();
   });
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && picker.classList.contains('abierto')) cerrarPicker();
+    if (e.key === 'Escape' && menuAbierto) cerrarMenu();
   });
-  lista.addEventListener('scroll', cerrarPicker);
+  lista.addEventListener('scroll', cerrarMenu);
 
   // ---------- Controles generales ----------
   var botonIconoNueva = document.getElementById('icono-nueva');
@@ -580,15 +681,32 @@
   });
   pintarIconoNueva();
 
+  var botonPrioNueva = document.getElementById('prio-nueva');
+  function pintarPrioNueva() {
+    pintarBadge(botonPrioNueva, prioNueva);
+    botonPrioNueva.classList.toggle('elegido', !!prioNueva);
+  }
+  botonPrioNueva.addEventListener('click', function (e) {
+    e.stopPropagation();
+    abrirPrio(botonPrioNueva, prioNueva, function (clave) {
+      prioNueva = clave;
+      pintarPrioNueva();
+      document.getElementById('nueva').focus();
+    });
+  });
+  pintarPrioNueva();
+
   document.getElementById('form').addEventListener('submit', function (e) {
     e.preventDefault();
     var inp = document.getElementById('nueva');
     var v = inp.value.trim();
     if (!v) return;
-    tareas.unshift({ id: nuevoId(), texto: v, hecha: false, creada: Date.now(), abierta: false, icono: iconoNueva, subtareas: [] });
+    tareas.unshift({ id: nuevoId(), texto: v, hecha: false, creada: Date.now(), abierta: false, icono: iconoNueva, prioridad: prioNueva, subtareas: [] });
     inp.value = '';
     iconoNueva = null;
+    prioNueva = null;
     pintarIconoNueva();
+    pintarPrioNueva();
     guardar(); pintar();
   });
 

@@ -100,7 +100,7 @@
   }
   .nueva-sub input:focus { outline: none; border-style: solid; border-color: var(--accent); background: #fff; }
 
-  .vacio { color: var(--muted); text-align: center; padding: 18px 10px; font-size: 13px; }
+  .lista-vacia { color: var(--muted); text-align: center; padding: 18px 10px; font-size: 13px; }
 
   footer {
     display: flex; justify-content: space-between; align-items: center; gap: 8px;
@@ -117,7 +117,7 @@
   /* Iconos */
   .ico { width: 16px; height: 16px; display: block; }
   .icono-btn {
-    width: 22px; height: 22px; flex: none; border-radius: 6px;
+    width: 22px; height: 22px; flex: none; border-radius: 6px; padding: 0;
     display: grid; place-items: center;
   }
   .icono-btn:hover { background: var(--border); }
@@ -130,7 +130,7 @@
   @media (hover: none) { .icono-btn.vacio { opacity: .4; } }
 
   #icono-nueva {
-    width: 34px; flex: none; border-radius: 8px;
+    width: 34px; flex: none; border-radius: 8px; padding: 0;
     border: 1px solid var(--border); background: var(--surface);
     display: grid; place-items: center; color: var(--muted);
   }
@@ -304,7 +304,7 @@
       return filtro === 'todas' || (filtro === 'hechas' ? t.hecha : !t.hecha);
     });
     if (!visibles.length) {
-      lista.appendChild(el('li', 'vacio', tareas.length ? 'Nada en este filtro' : 'Sin tareas. Escribe una arriba.'));
+      lista.appendChild(el('li', 'lista-vacia', tareas.length ? 'Nada en este filtro' : 'Sin tareas. Escribe una arriba.'));
     }
     visibles.forEach(function (t) { lista.appendChild(pintarTarea(t)); });
 

@@ -159,6 +159,25 @@
   }
   .menu .quitar:hover { background: #fdecec; color: var(--danger); }
 
+  /* Arrastrar y soltar */
+  .asa {
+    width: 14px; height: 22px; flex: none; padding: 0; border-radius: 4px;
+    display: grid; place-items: center; color: var(--muted);
+    cursor: grab; touch-action: none; opacity: 0;
+  }
+  .asa svg { width: 10px; height: 14px; display: block; }
+  .fila:hover > .asa, .sub:hover > .asa, .asa:focus { opacity: .7; }
+  .asa:hover { background: var(--border); opacity: 1; }
+  .asa:focus-visible { outline: 2px solid var(--accent); opacity: 1; }
+  .sub .asa { height: 20px; }
+  @media (hover: none) { .asa { opacity: .5; } }
+  body.arrastrando, body.arrastrando * { cursor: grabbing !important; user-select: none; }
+  .arrastrando-item {
+    position: relative; z-index: 2; background: #fff;
+    box-shadow: 0 6px 18px rgba(20, 30, 50, .18); border-radius: 8px;
+  }
+  .arrastrando-item .asa { opacity: 1; }
+
   /* Importancia (semáforo) */
   .punto {
     display: block; width: 10px; height: 10px; border-radius: 50%;
@@ -383,6 +402,9 @@
     if (foco && foco.tipo === 'sub') {
       var inp = lista.querySelector('.nueva-sub input[data-id="' + foco.id + '"]');
       if (inp) inp.focus();
+    } else if (foco && foco.tipo === 'asa') {
+      var asa = lista.querySelector('[data-id="' + foco.id + '"] > .fila > .asa, [data-id="' + foco.id + '"].sub > .asa');
+      if (asa) asa.focus();
     }
     foco = null;
     flashId = null;
@@ -393,6 +415,7 @@
     var hechas = t.subtareas.filter(function (s) { return s.hecha; }).length;
 
     var li = el('li', 'tarea' + (t.hecha ? ' hecha' : '') + (total ? '' : ' sin-subs') + (flashId === t.id ? ' flash' : ''));
+    li.dataset.id = t.id;
     var fila = el('div', 'fila');
 
     var exp = el('button', 'expandir', '›');
@@ -457,6 +480,7 @@
       guardar(); pintar();
     });
 
+    fila.appendChild(crearAsa('tarea', t.id, null));
     fila.appendChild(exp);
     fila.appendChild(cb);
     fila.appendChild(crearBadge(t.prioridad, function (clave) { t.prioridad = clave; guardar(); pintar(); }));
@@ -474,6 +498,7 @@
     var ul = el('ul', 'subs');
     t.subtareas.forEach(function (s) {
       var li = el('li', 'sub' + (s.hecha ? ' hecha' : ''));
+      li.dataset.id = s.id;
       var cb = el('input');
       cb.type = 'checkbox';
       cb.checked = s.hecha;
@@ -508,6 +533,7 @@
         });
         guardar(); pintar();
       });
+      li.appendChild(crearAsa('sub', s.id, t));
       li.appendChild(cb);
       li.appendChild(crearBadge(s.prioridad, function (clave) { s.prioridad = clave; guardar(); pintar(); }));
       li.appendChild(icoBtn); li.appendChild(span); li.appendChild(del);
@@ -577,6 +603,162 @@
       if (e.key === 'Escape') fin(false);
     });
     inp.addEventListener('blur', function () { fin(true); });
+  }
+
+  // ---------- Arrastrar y soltar ----------
+  var ASA_SVG = '<svg viewBox="0 0 10 16" fill="currentColor" aria-hidden="true"><circle cx="2.5" cy="3" r="1.5"/><circle cx="7.5" cy="3" r="1.5"/><circle cx="2.5" cy="8" r="1.5"/><circle cx="7.5" cy="8" r="1.5"/><circle cx="2.5" cy="13" r="1.5"/><circle cx="7.5" cy="13" r="1.5"/></svg>';
+
+  function crearAsa(tipo, id, padre) {
+    var b = el('button', 'asa');
+    b.type = 'button';
+    b.innerHTML = ASA_SVG;
+    b.title = 'Arrastra para mover (o usa las flechas ↑ ↓)';
+    b.setAttribute('aria-label', tipo === 'tarea' ? 'Mover tarea' : 'Mover subtarea');
+    b.addEventListener('pointerdown', function (e) { empezarArrastre(e, b, tipo, padre); });
+    b.addEventListener('keydown', function (e) {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      e.preventDefault();
+      moverConTeclado(tipo, id, padre, e.key === 'ArrowUp' ? -1 : 1);
+    });
+    return b;
+  }
+
+  // Hermanos entre los que se puede soltar
+  function hermanos(contenedor, tipo, excepto) {
+    var sel = tipo === 'tarea' ? ':scope > .tarea' : ':scope > .sub';
+    return Array.prototype.filter.call(contenedor.querySelectorAll(sel), function (n) { return n !== excepto; });
+  }
+
+  var arrastre = null;
+  function empezarArrastre(e, asa, tipo, padre) {
+    if (e.button !== undefined && e.button !== 0) return;
+    e.preventDefault();
+    cerrarMenu();
+    var item = asa.closest(tipo === 'tarea' ? '.tarea' : '.sub');
+    var contenedor = item.parentNode;
+    arrastre = {
+      tipo: tipo, padre: padre, item: item, contenedor: contenedor, asa: asa,
+      inicioY: e.clientY, y: e.clientY, movido: false, raf: null, puntero: e.pointerId,
+      ordenInicial: hermanos(contenedor, tipo, null).map(function (n) { return n.dataset.id; }).join(',')
+    };
+    capturar();
+    // Escuchamos en el documento: al mover el elemento en el DOM se pierde la captura del puntero
+    document.addEventListener('pointermove', moverArrastre);
+    document.addEventListener('pointerup', soltarArrastre);
+    document.addEventListener('pointercancel', cancelarArrastre);
+    window.addEventListener('blur', soltarArrastre);
+  }
+  function capturar() {
+    try { arrastre.asa.setPointerCapture(arrastre.puntero); } catch (err) {}
+  }
+
+  function moverArrastre(e) {
+    if (!arrastre || e.pointerId !== arrastre.puntero) return;
+    arrastre.y = e.clientY;
+    if (!arrastre.movido) {
+      if (Math.abs(e.clientY - arrastre.inicioY) < 4) return;
+      arrastre.movido = true;
+      arrastre.item.classList.add('arrastrando-item');
+      document.body.classList.add('arrastrando');
+      autoScroll();
+    }
+    recolocar();
+  }
+
+  function recolocar() {
+    var a = arrastre;
+    var otros = hermanos(a.contenedor, a.tipo, a.item);
+    var antesDe = null;
+    for (var i = 0; i < otros.length; i++) {
+      var r = otros[i].getBoundingClientRect();
+      // Para tareas con subtareas abiertas, usar solo la fila principal como referencia
+      var ref = a.tipo === 'tarea' ? otros[i].querySelector(':scope > .fila').getBoundingClientRect() : r;
+      if (a.y < ref.top + ref.height / 2) { antesDe = otros[i]; break; }
+    }
+    if (!antesDe && a.tipo === 'sub') antesDe = a.contenedor.querySelector(':scope > .nueva-sub');
+    var movido = false;
+    if (antesDe) {
+      if (a.item.nextSibling !== antesDe) { a.contenedor.insertBefore(a.item, antesDe); movido = true; }
+    } else if (a.contenedor.lastElementChild !== a.item) {
+      a.contenedor.appendChild(a.item); movido = true;
+    }
+    if (movido) capturar();   // recuperar la captura para seguir recibiendo el puntero fuera del bloque
+  }
+
+  // Desplazar la lista si arrastras cerca del borde superior o inferior
+  function autoScroll() {
+    if (!arrastre) return;
+    var r = lista.getBoundingClientRect();
+    var margen = 28, paso = 0;
+    if (arrastre.y < r.top + margen) paso = -Math.ceil((r.top + margen - arrastre.y) / 4);
+    else if (arrastre.y > r.bottom - margen) paso = Math.ceil((arrastre.y - (r.bottom - margen)) / 4);
+    if (paso) { lista.scrollTop += paso; recolocar(); }
+    arrastre.raf = requestAnimationFrame(autoScroll);
+  }
+
+  function terminarArrastre() {
+    var a = arrastre;
+    arrastre = null;
+    if (a.raf) cancelAnimationFrame(a.raf);
+    document.removeEventListener('pointermove', moverArrastre);
+    document.removeEventListener('pointerup', soltarArrastre);
+    document.removeEventListener('pointercancel', cancelarArrastre);
+    window.removeEventListener('blur', soltarArrastre);
+    try { a.asa.releasePointerCapture(a.puntero); } catch (err) {}
+    a.item.classList.remove('arrastrando-item');
+    document.body.classList.remove('arrastrando');
+    return a;
+  }
+
+  function soltarArrastre() {
+    if (!arrastre) return;
+    var a = terminarArrastre();
+    if (!a.movido) return;
+    var orden = hermanos(a.contenedor, a.tipo, null).map(function (n) { return n.dataset.id; });
+    if (orden.join(',') === a.ordenInicial) return;
+    if (a.tipo === 'tarea') aplicarOrdenTareas(orden);
+    else aplicarOrdenSubtareas(a.padre, orden);
+    guardar(); pintar();
+  }
+
+  function cancelarArrastre() {
+    if (!arrastre) return;
+    terminarArrastre();
+    pintar();
+  }
+
+  // Con un filtro activo solo se reordenan las tareas visibles: ocupan los mismos huecos que tenían.
+  function aplicarOrdenTareas(ordenVisible) {
+    var porId = {};
+    tareas.forEach(function (t) { porId[t.id] = t; });
+    var huecos = [];
+    tareas.forEach(function (t, i) { if (ordenVisible.indexOf(t.id) !== -1) huecos.push(i); });
+    var nuevas = tareas.slice();
+    huecos.forEach(function (pos, i) { nuevas[pos] = porId[ordenVisible[i]]; });
+    tareas = nuevas;
+  }
+  function aplicarOrdenSubtareas(t, orden) {
+    var porId = {};
+    t.subtareas.forEach(function (s) { porId[s.id] = s; });
+    t.subtareas = orden.map(function (id) { return porId[id]; }).filter(Boolean);
+  }
+
+  function moverConTeclado(tipo, id, padre, dir) {
+    if (tipo === 'tarea') {
+      var visibles = Array.prototype.map.call(lista.querySelectorAll(':scope > .tarea'), function (n) { return n.dataset.id; });
+      var i = visibles.indexOf(id), j = i + dir;
+      if (i < 0 || j < 0 || j >= visibles.length) return;
+      visibles.splice(i, 1); visibles.splice(j, 0, id);
+      aplicarOrdenTareas(visibles);
+    } else {
+      var orden = padre.subtareas.map(function (s) { return s.id; });
+      var k = orden.indexOf(id), m = k + dir;
+      if (k < 0 || m < 0 || m >= orden.length) return;
+      orden.splice(k, 1); orden.splice(m, 0, id);
+      aplicarOrdenSubtareas(padre, orden);
+    }
+    foco = { tipo: 'asa', id: id };
+    guardar(); pintar();
   }
 
   // ---------- Selector de iconos ----------

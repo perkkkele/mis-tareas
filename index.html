@@ -13,6 +13,8 @@
     --muted: #6b7280;
     --accent: #2f6fed;
     --accent-soft: #e8f0fe;
+    --ok: #1f9d55;
+    --ok-soft: #e6f6ec;
     --done: #9aa1ad;
     --danger: #d93838;
   }
@@ -25,70 +27,92 @@
     display: flex;
     flex-direction: column;
   }
-  header {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    padding: 10px 12px 6px;
-  }
+  button { font: inherit; border: 0; cursor: pointer; background: transparent; color: inherit; }
+
+  header { display: flex; align-items: baseline; justify-content: space-between; padding: 10px 12px 6px; }
   h1 { font-size: 15px; margin: 0; font-weight: 650; }
   #count { color: var(--muted); font-size: 12px; }
 
-  form { display: flex; gap: 6px; padding: 0 12px 8px; }
+  form#form { display: flex; gap: 6px; padding: 0 12px 8px; }
   #nueva {
-    flex: 1; min-width: 0;
-    padding: 7px 10px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    font: inherit;
-    background: var(--surface);
+    flex: 1; min-width: 0; padding: 7px 10px;
+    border: 1px solid var(--border); border-radius: 8px;
+    font: inherit; background: var(--surface);
   }
   #nueva:focus { outline: 2px solid var(--accent); outline-offset: -1px; background: #fff; }
-  .btn {
-    border: 0; border-radius: 8px; cursor: pointer; font: inherit;
-  }
-  #anadir { background: var(--accent); color: #fff; padding: 0 12px; font-weight: 600; }
+  #anadir { background: var(--accent); color: #fff; padding: 0 12px; font-weight: 600; border-radius: 8px; }
   #anadir:hover { filter: brightness(1.08); }
 
   .filtros { display: flex; gap: 4px; padding: 0 12px 6px; }
-  .filtros button {
-    background: transparent; color: var(--muted);
-    padding: 3px 9px; border-radius: 999px; font-size: 12px;
-  }
+  .filtros button { color: var(--muted); padding: 3px 9px; border-radius: 999px; font-size: 12px; }
   .filtros button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 
-  ul { list-style: none; margin: 0; padding: 0 6px; flex: 1; overflow-y: auto; }
-  li {
-    display: flex; align-items: center; gap: 8px;
-    padding: 6px 6px; border-radius: 8px;
+  #lista { list-style: none; margin: 0; padding: 0 6px 6px; flex: 1; overflow-y: auto; }
+
+  /* Fila de tarea */
+  .tarea { border-radius: 8px; }
+  .tarea.flash { animation: flash 1.2s ease-out; }
+  @keyframes flash { 0% { background: var(--ok-soft); } 100% { background: transparent; } }
+  .fila { display: flex; align-items: center; gap: 6px; padding: 5px 4px; border-radius: 8px; }
+  .fila:hover { background: var(--surface); }
+  .expandir {
+    width: 18px; height: 18px; flex: none; border-radius: 4px;
+    color: var(--muted); font-size: 12px; line-height: 18px; text-align: center;
+    transition: transform .15s;
   }
-  li:hover { background: var(--surface); }
-  li input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); flex: none; cursor: pointer; }
-  .texto { flex: 1; min-width: 0; overflow-wrap: anywhere; cursor: text; }
-  li.hecha .texto { color: var(--done); text-decoration: line-through; }
-  .editar {
-    flex: 1; min-width: 0; font: inherit; padding: 2px 6px;
-    border: 1px solid var(--accent); border-radius: 6px;
+  .expandir:hover { background: var(--border); color: var(--text); }
+  .expandir[aria-expanded="true"] { transform: rotate(90deg); }
+  .sin-subs .expandir { opacity: .35; }
+  .fila:hover .expandir { opacity: 1; }
+
+  input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); flex: none; cursor: pointer; margin: 0; }
+  .cuerpo { flex: 1; min-width: 0; }
+  .texto { display: block; overflow-wrap: anywhere; cursor: text; }
+  .hecha > .fila .texto, .sub.hecha .texto { color: var(--done); text-decoration: line-through; }
+  .barra { height: 3px; background: var(--border); border-radius: 2px; margin-top: 4px; overflow: hidden; }
+  .barra i { display: block; height: 100%; background: var(--accent); border-radius: 2px; transition: width .2s; }
+  .hecha .barra i { background: var(--ok); }
+  .contador {
+    flex: none; font-size: 11px; color: var(--muted);
+    background: var(--surface); border-radius: 999px; padding: 1px 7px;
   }
+  .hecha .contador { color: var(--ok); background: var(--ok-soft); }
+
+  .editar { width: 100%; font: inherit; padding: 2px 6px; border: 1px solid var(--accent); border-radius: 6px; }
+
   .borrar {
-    background: transparent; color: var(--muted);
-    width: 24px; height: 24px; font-size: 16px; line-height: 1;
-    opacity: 0; flex: none;
+    width: 22px; height: 22px; flex: none; border-radius: 6px;
+    color: var(--muted); font-size: 16px; line-height: 1; opacity: 0;
   }
-  li:hover .borrar, .borrar:focus { opacity: 1; }
+  .fila:hover > .borrar, .sub:hover > .borrar, .borrar:focus { opacity: 1; }
   .borrar:hover { color: var(--danger); background: #fdecec; }
-  @media (hover: none) { .borrar { opacity: 1; } }
+  @media (hover: none) { .borrar { opacity: 1; } .sin-subs .expandir { opacity: 1; } }
+
+  /* Subtareas */
+  .subs { list-style: none; margin: 0 0 4px 30px; padding: 0 0 0 10px; border-left: 2px solid var(--border); }
+  .sub { display: flex; align-items: center; gap: 6px; padding: 3px 4px; border-radius: 6px; font-size: 13px; }
+  .sub:hover { background: var(--surface); }
+  .sub .texto { flex: 1; min-width: 0; }
+  .nueva-sub { padding: 3px 4px; }
+  .nueva-sub input {
+    width: 100%; font: inherit; font-size: 13px; padding: 4px 8px;
+    border: 1px dashed var(--border); border-radius: 6px; background: transparent;
+  }
+  .nueva-sub input:focus { outline: none; border-style: solid; border-color: var(--accent); background: #fff; }
 
   .vacio { color: var(--muted); text-align: center; padding: 18px 10px; font-size: 13px; }
 
   footer {
-    display: flex; justify-content: space-between; align-items: center;
+    display: flex; justify-content: space-between; align-items: center; gap: 8px;
     padding: 6px 12px 8px; border-top: 1px solid var(--border);
     font-size: 12px; color: var(--muted);
   }
-  #limpiar { background: transparent; color: var(--muted); font-size: 12px; padding: 2px 4px; }
+  #limpiar { color: var(--muted); font-size: 12px; padding: 2px 4px; }
   #limpiar:hover { color: var(--danger); }
   #aviso { color: var(--danger); }
+  #deshacer-wrap { display: none; align-items: center; gap: 6px; color: var(--text); }
+  #deshacer-wrap.visible { display: flex; }
+  #deshacer { color: var(--accent); font-weight: 600; font-size: 12px; padding: 2px 4px; }
 </style>
 </head>
 <body>
@@ -99,20 +123,21 @@
 
   <form id="form" autocomplete="off">
     <input id="nueva" type="text" placeholder="Nueva tarea y pulsa Enter" maxlength="200" aria-label="Nueva tarea">
-    <button id="anadir" class="btn" type="submit">+</button>
+    <button id="anadir" type="submit" aria-label="Añadir tarea">+</button>
   </form>
 
   <div class="filtros" role="group" aria-label="Filtro">
-    <button class="btn" data-f="todas" aria-pressed="true">Todas</button>
-    <button class="btn" data-f="pendientes" aria-pressed="false">Pendientes</button>
-    <button class="btn" data-f="hechas" aria-pressed="false">Hechas</button>
+    <button data-f="todas" aria-pressed="true">Todas</button>
+    <button data-f="pendientes" aria-pressed="false">Pendientes</button>
+    <button data-f="hechas" aria-pressed="false">Hechas</button>
   </div>
 
   <ul id="lista"></ul>
 
   <footer>
     <span id="aviso"></span>
-    <button id="limpiar" class="btn" type="button">Borrar hechas</button>
+    <span id="deshacer-wrap"><span id="deshacer-msg"></span><button id="deshacer" type="button">Deshacer</button></span>
+    <button id="limpiar" type="button">Borrar hechas</button>
   </footer>
 
 <script>
@@ -120,31 +145,80 @@
   var CLAVE = 'mis-tareas-v1';
   var tareas = [];
   var filtro = 'todas';
-  var almacenOK = true;
+  var foco = null;          // { tipo: 'sub', id } para recolocar el foco tras repintar
+  var flashId = null;       // tarea que acaba de completarse sola
+  var copiaDeshacer = null;
+  var temporizador = null;
 
+  // ---------- Datos ----------
+  function normalizar(lista) {
+    if (!Array.isArray(lista)) return [];
+    return lista.map(function (t) {
+      return {
+        id: t.id || nuevoId(),
+        texto: String(t.texto || ''),
+        hecha: !!t.hecha,
+        creada: t.creada || Date.now(),
+        abierta: !!t.abierta,
+        subtareas: Array.isArray(t.subtareas) ? t.subtareas.map(function (s) {
+          return { id: s.id || nuevoId(), texto: String(s.texto || ''), hecha: !!s.hecha };
+        }) : []
+      };
+    });
+  }
   function cargar() {
     try {
       var raw = localStorage.getItem(CLAVE);
-      tareas = raw ? JSON.parse(raw) : [];
-      if (!Array.isArray(tareas)) tareas = [];
-    } catch (e) {
-      almacenOK = false;
-      tareas = [];
-    }
+      tareas = normalizar(raw ? JSON.parse(raw) : []);
+      return true;
+    } catch (e) { tareas = []; return false; }
   }
   function guardar() {
-    try {
-      localStorage.setItem(CLAVE, JSON.stringify(tareas));
-      almacenOK = true;
-    } catch (e) {
-      almacenOK = false;
-    }
-    document.getElementById('aviso').textContent =
-      almacenOK ? '' : 'No se puede guardar en este navegador';
+    var ok = true;
+    try { localStorage.setItem(CLAVE, JSON.stringify(tareas)); } catch (e) { ok = false; }
+    document.getElementById('aviso').textContent = ok ? '' : 'No se puede guardar en este navegador';
   }
-  function id() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  function nuevoId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function buscar(id) { for (var i = 0; i < tareas.length; i++) if (tareas[i].id === id) return tareas[i]; return null; }
 
+  // Regla clave: si una tarea tiene subtareas, está hecha solo cuando lo están todas.
+  function sincronizar(t) {
+    if (!t.subtareas.length) return;
+    var antes = t.hecha;
+    t.hecha = t.subtareas.every(function (s) { return s.hecha; });
+    if (!antes && t.hecha) flashId = t.id;
+  }
+
+  // ---------- Deshacer ----------
+  function conDeshacer(mensaje, accion) {
+    copiaDeshacer = JSON.stringify(tareas);
+    accion();
+    var wrap = document.getElementById('deshacer-wrap');
+    document.getElementById('deshacer-msg').textContent = mensaje;
+    wrap.classList.add('visible');
+    document.getElementById('limpiar').style.display = 'none';
+    clearTimeout(temporizador);
+    temporizador = setTimeout(ocultarDeshacer, 6000);
+  }
+  function ocultarDeshacer() {
+    copiaDeshacer = null;
+    document.getElementById('deshacer-wrap').classList.remove('visible');
+    document.getElementById('limpiar').style.display = '';
+  }
+  document.getElementById('deshacer').addEventListener('click', function () {
+    if (copiaDeshacer) { tareas = normalizar(JSON.parse(copiaDeshacer)); guardar(); pintar(); }
+    ocultarDeshacer();
+  });
+
+  // ---------- Pintado ----------
   var lista = document.getElementById('lista');
+
+  function el(tag, cls, txt) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (txt != null) n.textContent = txt;
+    return n;
+  }
 
   function pintar() {
     lista.innerHTML = '';
@@ -152,57 +226,158 @@
       return filtro === 'todas' || (filtro === 'hechas' ? t.hecha : !t.hecha);
     });
     if (!visibles.length) {
-      var v = document.createElement('li');
-      v.className = 'vacio';
-      v.textContent = tareas.length ? 'Nada en este filtro' : 'Sin tareas. Escribe una arriba.';
-      lista.appendChild(v);
+      lista.appendChild(el('li', 'vacio', tareas.length ? 'Nada en este filtro' : 'Sin tareas. Escribe una arriba.'));
     }
-    visibles.forEach(function (t) {
-      var li = document.createElement('li');
-      if (t.hecha) li.className = 'hecha';
+    visibles.forEach(function (t) { lista.appendChild(pintarTarea(t)); });
 
-      var cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.checked = !!t.hecha;
-      cb.setAttribute('aria-label', 'Marcar como hecha');
-      cb.addEventListener('change', function () { t.hecha = cb.checked; guardar(); pintar(); });
-
-      var span = document.createElement('span');
-      span.className = 'texto';
-      span.textContent = t.texto;
-      span.title = 'Doble clic para editar';
-      span.addEventListener('dblclick', function () { editar(li, span, t); });
-
-      var del = document.createElement('button');
-      del.className = 'btn borrar';
-      del.type = 'button';
-      del.textContent = '×';
-      del.setAttribute('aria-label', 'Borrar tarea');
-      del.addEventListener('click', function () {
-        tareas = tareas.filter(function (x) { return x.id !== t.id; });
-        guardar(); pintar();
-      });
-
-      li.appendChild(cb); li.appendChild(span); li.appendChild(del);
-      lista.appendChild(li);
-    });
     var pend = tareas.filter(function (t) { return !t.hecha; }).length;
-    document.getElementById('count').textContent =
-      pend === 1 ? '1 pendiente' : pend + ' pendientes';
+    document.getElementById('count').textContent = pend === 1 ? '1 pendiente' : pend + ' pendientes';
+
+    if (foco && foco.tipo === 'sub') {
+      var inp = lista.querySelector('.nueva-sub input[data-id="' + foco.id + '"]');
+      if (inp) inp.focus();
+    }
+    foco = null;
+    flashId = null;
   }
 
-  function editar(li, span, t) {
-    var inp = document.createElement('input');
-    inp.className = 'editar';
-    inp.value = t.texto;
+  function pintarTarea(t) {
+    var total = t.subtareas.length;
+    var hechas = t.subtareas.filter(function (s) { return s.hecha; }).length;
+
+    var li = el('li', 'tarea' + (t.hecha ? ' hecha' : '') + (total ? '' : ' sin-subs') + (flashId === t.id ? ' flash' : ''));
+    var fila = el('div', 'fila');
+
+    var exp = el('button', 'expandir', '›');
+    exp.type = 'button';
+    exp.setAttribute('aria-expanded', t.abierta ? 'true' : 'false');
+    exp.title = total ? 'Ver subtareas' : 'Añadir subtareas';
+    exp.setAttribute('aria-label', exp.title);
+    exp.addEventListener('click', function () {
+      t.abierta = !t.abierta;
+      if (t.abierta && !total) foco = { tipo: 'sub', id: t.id };
+      guardar(); pintar();
+    });
+
+    var cb = el('input');
+    cb.type = 'checkbox';
+    cb.checked = t.hecha;
+    cb.setAttribute('aria-label', 'Marcar tarea como hecha');
+    cb.addEventListener('change', function () {
+      if (total) {
+        // Marcar la tarea completa todas sus subtareas; desmarcarla las reabre.
+        t.subtareas.forEach(function (s) { s.hecha = cb.checked; });
+        sincronizar(t);
+      } else {
+        t.hecha = cb.checked;
+      }
+      guardar(); pintar();
+    });
+
+    var cuerpo = el('div', 'cuerpo');
+    var span = el('span', 'texto', t.texto);
+    span.title = 'Doble clic para editar';
+    span.addEventListener('dblclick', function () {
+      editarEn(span, t.texto, function (v) { t.texto = v; });
+    });
+    cuerpo.appendChild(span);
+    if (total) {
+      var barra = el('div', 'barra');
+      var relleno = el('i');
+      relleno.style.width = Math.round(hechas / total * 100) + '%';
+      barra.appendChild(relleno);
+      cuerpo.appendChild(barra);
+    }
+
+    var del = el('button', 'borrar', '×');
+    del.type = 'button';
+    del.setAttribute('aria-label', 'Borrar tarea');
+    del.addEventListener('click', function () {
+      conDeshacer('Tarea borrada', function () {
+        tareas = tareas.filter(function (x) { return x.id !== t.id; });
+      });
+      guardar(); pintar();
+    });
+
+    fila.appendChild(exp);
+    fila.appendChild(cb);
+    fila.appendChild(cuerpo);
+    if (total) fila.appendChild(el('span', 'contador', hechas + '/' + total));
+    fila.appendChild(del);
+    li.appendChild(fila);
+
+    if (t.abierta) li.appendChild(pintarSubtareas(t));
+    return li;
+  }
+
+  function pintarSubtareas(t) {
+    var ul = el('ul', 'subs');
+    t.subtareas.forEach(function (s) {
+      var li = el('li', 'sub' + (s.hecha ? ' hecha' : ''));
+      var cb = el('input');
+      cb.type = 'checkbox';
+      cb.checked = s.hecha;
+      cb.setAttribute('aria-label', 'Marcar subtarea como hecha');
+      cb.addEventListener('change', function () {
+        s.hecha = cb.checked;
+        sincronizar(t);
+        guardar(); pintar();
+      });
+      var span = el('span', 'texto', s.texto);
+      span.title = 'Doble clic para editar';
+      span.addEventListener('dblclick', function () {
+        editarEn(span, s.texto, function (v) { s.texto = v; });
+      });
+      var del = el('button', 'borrar', '×');
+      del.type = 'button';
+      del.setAttribute('aria-label', 'Borrar subtarea');
+      del.addEventListener('click', function () {
+        conDeshacer('Subtarea borrada', function () {
+          t.subtareas = t.subtareas.filter(function (x) { return x.id !== s.id; });
+          sincronizar(t);
+        });
+        guardar(); pintar();
+      });
+      li.appendChild(cb); li.appendChild(span); li.appendChild(del);
+      ul.appendChild(li);
+    });
+
+    var nueva = el('li', 'nueva-sub');
+    var inp = el('input');
+    inp.type = 'text';
     inp.maxLength = 200;
-    li.replaceChild(inp, span);
+    inp.placeholder = '+ Añadir subtarea';
+    inp.setAttribute('aria-label', 'Nueva subtarea');
+    inp.dataset.id = t.id;
+    inp.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        var v = inp.value.trim();
+        if (!v) return;
+        t.subtareas.push({ id: nuevoId(), texto: v, hecha: false });
+        sincronizar(t);
+        foco = { tipo: 'sub', id: t.id };
+        guardar(); pintar();
+      } else if (e.key === 'Escape') {
+        inp.value = ''; inp.blur();
+      }
+    });
+    nueva.appendChild(inp);
+    ul.appendChild(nueva);
+    return ul;
+  }
+
+  function editarEn(span, valor, aplicar) {
+    var inp = el('input', 'editar');
+    inp.value = valor;
+    inp.maxLength = 200;
+    span.replaceWith(inp);
     inp.focus(); inp.select();
-    var hecho = false;
-    function fin(guardarCambio) {
-      if (hecho) return; hecho = true;
-      var val = inp.value.trim();
-      if (guardarCambio && val) { t.texto = val; guardar(); }
+    var terminado = false;
+    function fin(ok) {
+      if (terminado) return; terminado = true;
+      var v = inp.value.trim();
+      if (ok && v) { aplicar(v); guardar(); }
       pintar();
     }
     inp.addEventListener('keydown', function (e) {
@@ -212,12 +387,13 @@
     inp.addEventListener('blur', function () { fin(true); });
   }
 
+  // ---------- Controles generales ----------
   document.getElementById('form').addEventListener('submit', function (e) {
     e.preventDefault();
     var inp = document.getElementById('nueva');
-    var val = inp.value.trim();
-    if (!val) return;
-    tareas.unshift({ id: id(), texto: val, hecha: false, creada: Date.now() });
+    var v = inp.value.trim();
+    if (!v) return;
+    tareas.unshift({ id: nuevoId(), texto: v, hecha: false, creada: Date.now(), abierta: false, subtareas: [] });
     inp.value = '';
     guardar(); pintar();
   });
@@ -233,13 +409,15 @@
   });
 
   document.getElementById('limpiar').addEventListener('click', function () {
-    tareas = tareas.filter(function (t) { return !t.hecha; });
+    if (!tareas.some(function (t) { return t.hecha; })) return;
+    conDeshacer('Hechas borradas', function () {
+      tareas = tareas.filter(function (t) { return !t.hecha; });
+    });
     guardar(); pintar();
   });
 
-  cargar();
+  if (!cargar()) document.getElementById('aviso').textContent = 'No se puede guardar en este navegador';
   pintar();
-  if (!almacenOK) document.getElementById('aviso').textContent = 'No se puede guardar en este navegador';
 })();
 </script>
 </body>

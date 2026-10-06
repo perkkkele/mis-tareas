@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mis tareas</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --surface: #f5f6f8;
+    --border: #e3e5ea;
+    --text: #1f2430;
+    --muted: #6b7280;
+    --accent: #2f6fed;
+    --accent-soft: #e8f0fe;
+    --done: #9aa1ad;
+    --danger: #d93838;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 10px 12px 6px;
+  }
+  h1 { font-size: 15px; margin: 0; font-weight: 650; }
+  #count { color: var(--muted); font-size: 12px; }
+
+  form { display: flex; gap: 6px; padding: 0 12px 8px; }
+  #nueva {
+    flex: 1; min-width: 0;
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font: inherit;
+    background: var(--surface);
+  }
+  #nueva:focus { outline: 2px solid var(--accent); outline-offset: -1px; background: #fff; }
+  .btn {
+    border: 0; border-radius: 8px; cursor: pointer; font: inherit;
+  }
+  #anadir { background: var(--accent); color: #fff; padding: 0 12px; font-weight: 600; }
+  #anadir:hover { filter: brightness(1.08); }
+
+  .filtros { display: flex; gap: 4px; padding: 0 12px 6px; }
+  .filtros button {
+    background: transparent; color: var(--muted);
+    padding: 3px 9px; border-radius: 999px; font-size: 12px;
+  }
+  .filtros button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+
+  ul { list-style: none; margin: 0; padding: 0 6px; flex: 1; overflow-y: auto; }
+  li {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 6px; border-radius: 8px;
+  }
+  li:hover { background: var(--surface); }
+  li input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); flex: none; cursor: pointer; }
+  .texto { flex: 1; min-width: 0; overflow-wrap: anywhere; cursor: text; }
+  li.hecha .texto { color: var(--done); text-decoration: line-through; }
+  .editar {
+    flex: 1; min-width: 0; font: inherit; padding: 2px 6px;
+    border: 1px solid var(--accent); border-radius: 6px;
+  }
+  .borrar {
+    background: transparent; color: var(--muted);
+    width: 24px; height: 24px; font-size: 16px; line-height: 1;
+    opacity: 0; flex: none;
+  }
+  li:hover .borrar, .borrar:focus { opacity: 1; }
+  .borrar:hover { color: var(--danger); background: #fdecec; }
+  @media (hover: none) { .borrar { opacity: 1; } }
+
+  .vacio { color: var(--muted); text-align: center; padding: 18px 10px; font-size: 13px; }
+
+  footer {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 12px 8px; border-top: 1px solid var(--border);
+    font-size: 12px; color: var(--muted);
+  }
+  #limpiar { background: transparent; color: var(--muted); font-size: 12px; padding: 2px 4px; }
+  #limpiar:hover { color: var(--danger); }
+  #aviso { color: var(--danger); }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Mis tareas</h1>
+    <span id="count"></span>
+  </header>
+
+  <form id="form" autocomplete="off">
+    <input id="nueva" type="text" placeholder="Nueva tarea y pulsa Enter" maxlength="200" aria-label="Nueva tarea">
+    <button id="anadir" class="btn" type="submit">+</button>
+  </form>
+
+  <div class="filtros" role="group" aria-label="Filtro">
+    <button class="btn" data-f="todas" aria-pressed="true">Todas</button>
+    <button class="btn" data-f="pendientes" aria-pressed="false">Pendientes</button>
+    <button class="btn" data-f="hechas" aria-pressed="false">Hechas</button>
+  </div>
+
+  <ul id="lista"></ul>
+
+  <footer>
+    <span id="aviso"></span>
+    <button id="limpiar" class="btn" type="button">Borrar hechas</button>
+  </footer>
+
+<script>
+(function () {
+  var CLAVE = 'mis-tareas-v1';
+  var tareas = [];
+  var filtro = 'todas';
+  var almacenOK = true;
+
+  function cargar() {
+    try {
+      var raw = localStorage.getItem(CLAVE);
+      tareas = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(tareas)) tareas = [];
+    } catch (e) {
+      almacenOK = false;
+      tareas = [];
+    }
+  }
+  function guardar() {
+    try {
+      localStorage.setItem(CLAVE, JSON.stringify(tareas));
+      almacenOK = true;
+    } catch (e) {
+      almacenOK = false;
+    }
+    document.getElementById('aviso').textContent =
+      almacenOK ? '' : 'No se puede guardar en este navegador';
+  }
+  function id() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+  var lista = document.getElementById('lista');
+
+  function pintar() {
+    lista.innerHTML = '';
+    var visibles = tareas.filter(function (t) {
+      return filtro === 'todas' || (filtro === 'hechas' ? t.hecha : !t.hecha);
+    });
+    if (!visibles.length) {
+      var v = document.createElement('li');
+      v.className = 'vacio';
+      v.textContent = tareas.length ? 'Nada en este filtro' : 'Sin tareas. Escribe una arriba.';
+      lista.appendChild(v);
+    }
+    visibles.forEach(function (t) {
+      var li = document.createElement('li');
+      if (t.hecha) li.className = 'hecha';
+
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = !!t.hecha;
+      cb.setAttribute('aria-label', 'Marcar como hecha');
+      cb.addEventListener('change', function () { t.hecha = cb.checked; guardar(); pintar(); });
+
+      var span = document.createElement('span');
+      span.className = 'texto';
+      span.textContent = t.texto;
+      span.title = 'Doble clic para editar';
+      span.addEventListener('dblclick', function () { editar(li, span, t); });
+
+      var del = document.createElement('button');
+      del.className = 'btn borrar';
+      del.type = 'button';
+      del.textContent = '×';
+      del.setAttribute('aria-label', 'Borrar tarea');
+      del.addEventListener('click', function () {
+        tareas = tareas.filter(function (x) { return x.id !== t.id; });
+        guardar(); pintar();
+      });
+
+      li.appendChild(cb); li.appendChild(span); li.appendChild(del);
+      lista.appendChild(li);
+    });
+    var pend = tareas.filter(function (t) { return !t.hecha; }).length;
+    document.getElementById('count').textContent =
+      pend === 1 ? '1 pendiente' : pend + ' pendientes';
+  }
+
+  function editar(li, span, t) {
+    var inp = document.createElement('input');
+    inp.className = 'editar';
+    inp.value = t.texto;
+    inp.maxLength = 200;
+    li.replaceChild(inp, span);
+    inp.focus(); inp.select();
+    var hecho = false;
+    function fin(guardarCambio) {
+      if (hecho) return; hecho = true;
+      var val = inp.value.trim();
+      if (guardarCambio && val) { t.texto = val; guardar(); }
+      pintar();
+    }
+    inp.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') fin(true);
+      if (e.key === 'Escape') fin(false);
+    });
+    inp.addEventListener('blur', function () { fin(true); });
+  }
+
+  document.getElementById('form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var inp = document.getElementById('nueva');
+    var val = inp.value.trim();
+    if (!val) return;
+    tareas.unshift({ id: id(), texto: val, hecha: false, creada: Date.now() });
+    inp.value = '';
+    guardar(); pintar();
+  });
+
+  document.querySelectorAll('.filtros button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      filtro = b.dataset.f;
+      document.querySelectorAll('.filtros button').forEach(function (x) {
+        x.setAttribute('aria-pressed', x === b ? 'true' : 'false');
+      });
+      pintar();
+    });
+  });
+
+  document.getElementById('limpiar').addEventListener('click', function () {
+    tareas = tareas.filter(function (t) { return !t.hecha; });
+    guardar(); pintar();
+  });
+
+  cargar();
+  pintar();
+  if (!almacenOK) document.getElementById('aviso').textContent = 'No se puede guardar en este navegador';
+})();
+</script>
+</body>
+</html>

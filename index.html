@@ -319,8 +319,8 @@
   <ul id="lista" hidden></ul>
 
   <div id="columnas">
-    <section class="columna" data-estado="todo" aria-label="ToDo">
-      <div class="col-cab"><span class="col-dot"></span>ToDo <span class="col-num"></span></div>
+    <section class="columna" data-estado="todo" aria-label="To-Do">
+      <div class="col-cab"><span class="col-dot"></span>To-Do <span class="col-num"></span></div>
       <ul class="lista-col" data-estado="todo"></ul>
     </section>
     <section class="columna seg" data-estado="seguimiento" aria-label="Seguimiento">
@@ -668,7 +668,7 @@
       mover = el('button', 'mover');
       mover.type = 'button';
       mover.innerHTML = aSeg ? FLECHA_DER : FLECHA_IZQ;
-      mover.title = aSeg ? 'Pasar a Seguimiento' : 'Volver a ToDo';
+      mover.title = aSeg ? 'Pasar a Seguimiento' : 'Volver a To-Do';
       mover.setAttribute('aria-label', mover.title);
       mover.addEventListener('click', function () {
         cambiarEstado(t, aSeg ? 'seguimiento' : 'todo');

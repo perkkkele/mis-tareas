@@ -32,9 +32,10 @@
   }
   button { font: inherit; border: 0; cursor: pointer; background: transparent; color: inherit; }
 
-  header { display: flex; align-items: baseline; justify-content: space-between; padding: 10px 12px 6px; }
-  h1 { font-size: 15px; margin: 0; font-weight: 650; }
-  #count { color: var(--muted); font-size: 12px; }
+  /* El título «Mis tareas» lo muestra la barra del bloque de Symbaloo; aquí solo pestañas y contador */
+  header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 12px 6px; }
+  .solo-lector { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  #count { color: var(--muted); font-size: 12px; white-space: nowrap; }
 
   form#form { display: flex; gap: 6px; padding: 8px 12px 4px; border-top: 1px solid var(--border); }
   #nueva {
@@ -46,7 +47,7 @@
   #anadir { background: var(--accent); color: #fff; padding: 0 12px; font-weight: 600; border-radius: 8px; }
   #anadir:hover { filter: brightness(1.08); }
 
-  .filtros { display: flex; gap: 4px; padding: 0 12px 6px; }
+  .filtros { display: flex; gap: 4px; }
   .filtros button { color: var(--muted); padding: 3px 9px; border-radius: 999px; font-size: 12px; }
   .filtros button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 
@@ -306,15 +307,14 @@
 </head>
 <body>
   <header>
-    <h1>Mis tareas</h1>
+    <h1 class="solo-lector">Mis tareas</h1>
+    <div class="filtros" role="group" aria-label="Filtro">
+      <button data-f="todas" aria-pressed="false">Todas</button>
+      <button data-f="pendientes" aria-pressed="true">Pendientes</button>
+      <button data-f="hechas" aria-pressed="false">Hechas</button>
+    </div>
     <span id="count"></span>
   </header>
-
-  <div class="filtros" role="group" aria-label="Filtro">
-    <button data-f="todas" aria-pressed="false">Todas</button>
-    <button data-f="pendientes" aria-pressed="true">Pendientes</button>
-    <button data-f="hechas" aria-pressed="false">Hechas</button>
-  </div>
 
   <ul id="lista" hidden></ul>
 
